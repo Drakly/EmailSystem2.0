@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+    <div th:fragment="email-list">
+        <div class="email-list">
+            <div th:if="${emails.empty}" class="text-center py-5">
+                <p class="text-muted">No emails found</p>
+            </div>
+            
+            <div th:each="email : ${emails}" class="email-item p-3 border-bottom">
+                <div class="d-flex align-items-center">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" th:value="${email.id}">
+                    </div>
+                    <div class="ms-3 flex-grow-1">
+                        <a th:href="@{/email/{id}(id=${email.id})}" class="text-decoration-none text-dark">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div th:class="${!email.read ? 'fw-bold' : ''}">
+                                    <span th:text="${email.sender.firstName + ' ' + email.sender.lastName}">Sender Name</span>
+                                </div>
+                                <small class="text-muted" th:text="${#temporals.format(email.sentAt, 'MMM d')}">Date</small>
+                            </div>
+                            <div class="subject" th:text="${email.subject}">Subject</div>
+                            <div class="preview text-muted text-truncate" th:text="${email.content}">Preview</div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <nav th:if="${emails.totalPages > 1}" class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item" th:classappend="${emails.first ? 'disabled' : ''}">
+                    <a class="page-link" th:href="@{${#httpServletRequest.requestURI}(page=${emails.number - 1})}">Previous</a>
+                </li>
+                <li class="page-item" th:each="i : ${#numbers.sequence(0, emails.totalPages - 1)}"
+                    th:classappend="${i == emails.number ? 'active' : ''}">
+                    <a class="page-link" th:href="@{${#httpServletRequest.requestURI}(page=${i})}" th:text="${i + 1}">1</a>
+                </li>
+                <li class="page-item" th:classappend="${emails.last ? 'disabled' : ''}">
+                    <a class="page-link" th:href="@{${#httpServletRequest.requestURI}(page=${emails.number + 1})}">Next</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</body>
+</html> 
