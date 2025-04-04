@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import lombok.Builder;
 import lombok.Getter;
@@ -52,14 +54,33 @@ public class Email {
 
     @Column(name = "is_starred", nullable = false)
     private boolean starred;
+    
+    @OneToMany(mappedBy = "email", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Attachment> attachments = new ArrayList<>();
+    
+    public void addAttachment(Attachment attachment) {
+        attachments.add(attachment);
+        attachment.setEmail(this);
+    }
+    
+    public void removeAttachment(Attachment attachment) {
+        attachments.remove(attachment);
+        attachment.setEmail(null);
+    }
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        read = false;
-        sent = false;
-        draft = false;
-        trash = false;
-        starred = false;
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        if (read == false && trash == false && sent == false && draft == false) {
+            // Set default values only if they haven't been explicitly set
+            read = false;
+            sent = false;
+            draft = false;
+            trash = false;
+            starred = false;
+        }
     }
 } 

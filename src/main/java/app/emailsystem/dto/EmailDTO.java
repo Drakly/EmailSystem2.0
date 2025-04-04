@@ -1,20 +1,22 @@
 package app.emailsystem.dto;
 
 import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
+import lombok.Builder;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
 import java.util.List;
-import jakarta.validation.constraints.Pattern;
+import org.springframework.web.multipart.MultipartFile;
 
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class EmailDTO {
     private String id;
     
     @NotBlank(message = "Recipients are required")
-    @Pattern(regexp = "^[\\w.%+-]+@[\\w.-]+\\.[A-Za-z]{2,}(\\s*,\\s*[\\w.%+-]+@[\\w.-]+\\.[A-Za-z]{2,})*$", 
-            message = "Please provide valid email addresses separated by commas")
     private String recipients;
     
     @NotBlank(message = "Subject is required")
@@ -25,5 +27,13 @@ public class EmailDTO {
     private String content;
     
     private boolean isDraft;
-    private List<AttachmentDTO> attachments;
+    
+    // For file uploads
+    private List<MultipartFile> attachments;
+    
+    // For displaying attachments when viewing an email
+    private List<AttachmentDTO> savedAttachments;
+    
+    // For processing existing attachment IDs during AJAX draft saving
+    private String attachmentIds;
 } 

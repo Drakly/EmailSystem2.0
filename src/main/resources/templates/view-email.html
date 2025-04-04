@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}">
+<head>
+    <title th:text="${email.subject}">Email Subject</title>
+    <link rel="stylesheet" th:href="@{/css/email-view.css}">
+</head>
+<body>
+    <div layout:fragment="content">
+        <div class="email-actions d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <a th:href="@{${returnTo != null ? returnTo : '/inbox'}}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="bi bi-three-dots"></i> Actions
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                        <a class="dropdown-item" th:href="@{/compose(reply=${email.id})}">
+                            <i class="bi bi-reply"></i> Reply
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" th:href="@{/compose(forward=${email.id})}">
+                            <i class="bi bi-forward"></i> Forward
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <form th:action="@{/email/{id}/star(id=${email.id})}" method="post" class="dropdown-item">
+                            <input type="hidden" name="_csrf" th:value="${_csrf.token}">
+                            <button type="submit" class="btn btn-link p-0">
+                                <i class="bi" th:classappend="${email.starred ? 'bi-star-fill text-warning' : 'bi-star'}"></i>
+                                <span th:text="${email.starred ? 'Unstar' : 'Star'}">Star</span>
+                            </button>
+                        </form>
+                    </li>
+                    <li>
+                        <form th:action="@{/email/{id}/trash(id=${email.id})}" method="post" class="dropdown-item">
+                            <input type="hidden" name="_csrf" th:value="${_csrf.token}">
+                            <button type="submit" class="btn btn-link text-danger p-0">
+                                <i class="bi bi-trash"></i> Move to Trash
+                            </button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="email-container">
+            <div class="email-header">
+                <h2 class="email-subject" th:text="${email.subject}">Email Subject</h2>
+                
+                <div class="email-meta d-flex justify-content-between">
+                    <div class="sender-info">
+                        <div class="avatar" th:text="${#strings.substring(email.sender.firstName, 0, 1) + #strings.substring(email.sender.lastName, 0, 1)}">JS</div>
+                        <div>
+                            <div class="sender-name" th:text="${email.sender.firstName + ' ' + email.sender.lastName}">John Smith</div>
+                            <div class="sender-email text-muted" th:text="${email.sender.email}">john.smith@example.com</div>
+                        </div>
+                    </div>
+                    <div class="email-date">
+                        <span class="text-muted" th:text="${#temporals.format(email.createdAt, 'MMMM d, yyyy h:mm a')}">March 15, 2023 10:30 AM</span>
+                        <span th:if="${email.starred}" class="starred ms-2">
+                            <i class="bi bi-star-fill text-warning"></i>
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="recipients">
+                    <span class="text-muted">To: </span>
+                    <span th:text="${email.recipient.email}">recipient@example.com</span>
+                </div>
+            </div>
+            
+            <div class="email-body">
+                <div class="email-content" th:utext="${#strings.replace(#strings.escapeXml(email.content), '&#10;', '<br>')}">
+                    Email content goes here.
+                </div>
+                
+                <div th:if="${not #lists.isEmpty(email.attachments)}" class="email-attachments">
+                    <h5>Attachments</h5>
+                    <div class="attachment-list">
+                        <div th:each="attachment : ${email.attachments}" class="attachment-item">
+                            <a th:href="@{/attachment/{id}(id=${attachment.id})}" class="attachment-link">
+                                <div class="attachment-icon">
+                                    <i class="bi bi-file-earmark"></i>
+                                </div>
+                                <div class="attachment-details">
+                                    <div class="attachment-name" th:text="${attachment.filename}">document.pdf</div>
+                                    <div class="attachment-size text-muted" th:text="${attachment.size}">123 KB</div>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

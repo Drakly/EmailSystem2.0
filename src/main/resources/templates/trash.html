@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}">
+<head>
+    <title>Trash - Email System</title>
+    <link rel="stylesheet" th:href="@{/css/email-list.css}">
+</head>
+<body>
+    <div layout:fragment="content">
+        <div class="d-flex justify-content-between align-items-center mb-4 page-header">
+            <h2><i class="bi bi-trash me-2"></i>Trash</h2>
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-secondary" id="refreshButton">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+                <button type="button" class="btn btn-danger" id="emptyTrashButton">
+                    <i class="bi bi-trash"></i> Empty Trash
+                </button>
+            </div>
+        </div>
+
+        <div th:if="${message}" class="alert alert-success alert-dismissible fade show" role="alert">
+            <span th:text="${message}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        
+        <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <span th:text="${error}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
+        <div class="card">
+            <div class="card-body p-0">
+                <div th:replace="~{fragments/email-list :: email-list('trash')}"></div>
+            </div>
+        </div>
+        
+        <!-- Empty Trash confirmation modal -->
+        <div class="modal fade" id="emptyTrashModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Empty Trash</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to permanently delete all emails in the trash?</p>
+                        <p class="text-danger"><strong>This action cannot be undone.</strong></p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <form th:action="@{/emails/empty-trash}" method="post">
+                            <input type="hidden" name="_csrf" th:value="${_csrf.token}">
+                            <button type="submit" class="btn btn-danger">Empty Trash</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Restore form (hidden) -->
+        <form id="restoreForm" th:action="@{/emails/restore}" method="post" style="display: none;">
+            <input type="hidden" name="emailIds" id="selectedEmailIds">
+            <input type="hidden" name="_csrf" th:value="${_csrf.token}">
+        </form>
+    </div>
+    
+    <th:block layout:fragment="scripts">
+        <script>
+            $(document).ready(function() {
+                // Handle refresh button
+                $('#refreshButton').click(function() {
+                    window.location.reload();
+                });
+                
+                // Handle empty trash button
+                $('#emptyTrashButton').click(function() {
+                    const modal = new bootstrap.Modal(document.getElementById('emptyTrashModal'));
+                    modal.show();
+                });
+                
+                // Make entire email item clickable (except for controls)
+                $('.email-item').click(function(e) {
+                    // Don't trigger if clicking on a checkbox or button
+                    if (!$(e.target).is('.form-check-input, button, .dropdown-toggle, .dropdown-menu, .dropdown-item')) {
+                        const href = $(this).find('a').attr('href');
+                        if (href) {
+                            window.location.href = href;
+                        }
+                    }
+                });
+                
+                // Restore selected emails
+                $('.restore-email').click(function(e) {
+                    e.preventDefault();
+                    const emailId = $(this).data('email-id');
+                    $('#selectedEmailIds').val(emailId);
+                    $('#restoreForm').submit();
+                });
+                
+                // Handle select all checkbox
+                $('#selectAll').change(function() {
+                    $('.form-check-input').prop('checked', $(this).prop('checked'));
+                });
+            });
+        </script>
+    </th:block>
+</body>
+</html> 

@@ -8,7 +8,10 @@ import java.util.UUID;
 
 public interface EmailRepository extends JpaRepository<Email, UUID> {
     Page<Email> findByRecipientIdAndTrashFalseOrderByCreatedAtDesc(UUID userId, Pageable pageable);
-    Page<Email> findBySenderIdAndDraftFalseAndTrashFalseOrderByCreatedAtDesc(UUID userId, Pageable pageable);
-    Page<Email> findBySenderIdAndDraftTrueOrderByCreatedAtDesc(UUID userId, Pageable pageable);
-    Page<Email> findByTrashTrueAndSenderIdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
+    Page<Email> findBySenderIdAndSentTrueAndTrashFalseOrderByCreatedAtDesc(UUID userId, Pageable pageable);
+    Page<Email> findBySenderIdAndDraftTrueAndTrashFalseOrderByCreatedAtDesc(UUID userId, Pageable pageable);
+    Page<Email> findByTrashTrueAndSenderIdOrTrashTrueAndRecipientIdOrderByCreatedAtDesc(UUID senderId, UUID recipientId, Pageable pageable);
+    
+    // Count unread emails
+    long countByRecipientIdAndReadFalseAndTrashFalse(UUID userId);
 } 

@@ -3,13 +3,13 @@
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layout/main}">
 <head>
-    <title>Inbox - Email System</title>
+    <title>Drafts - Email System</title>
     <link rel="stylesheet" th:href="@{/css/email-list.css}">
 </head>
 <body>
     <div layout:fragment="content">
         <div class="d-flex justify-content-between align-items-center mb-4 page-header">
-            <h2><i class="bi bi-inbox me-2"></i>Inbox</h2>
+            <h2><i class="bi bi-file-earmark me-2"></i>Drafts</h2>
             <div class="btn-group">
                 <button type="button" class="btn btn-outline-secondary" id="refreshButton">
                     <i class="bi bi-arrow-clockwise"></i> Refresh
@@ -18,11 +18,9 @@
                     <i class="bi bi-three-dots"></i> More
                 </button>
                 <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="#" id="markAllAsRead"><i class="bi bi-check-all"></i> Mark all as read</a></li>
-                    <li><a class="dropdown-item" href="#" id="markSelectedAsRead"><i class="bi bi-check"></i> Mark selected as read</a></li>
-                    <li><a class="dropdown-item" href="#" id="markSelectedAsUnread"><i class="bi bi-envelope"></i> Mark selected as unread</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="#" id="moveSelectedToTrash"><i class="bi bi-trash"></i> Move to trash</a></li>
+                    <li><a class="dropdown-item" href="#" id="moveSelectedToTrash">
+                        <i class="bi bi-trash"></i> Move to trash</a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -39,13 +37,19 @@
 
         <div class="card">
             <div class="card-body p-0">
-                <div th:replace="~{fragments/email-list :: email-list('inbox')}"></div>
+                <div th:replace="~{fragments/email-list :: email-list('drafts')}"></div>
             </div>
         </div>
         
         <!-- Bulk action form (hidden) -->
         <form id="bulkActionForm" method="post" style="display: none;">
             <input type="hidden" name="emailIds" id="selectedEmailIds">
+            <input type="hidden" name="_csrf" th:value="${_csrf.token}">
+        </form>
+        
+        <!-- Single action form (hidden) -->
+        <form id="singleActionForm" method="post" style="display: none;">
+            <input type="hidden" name="emailIds" id="singleEmailId">
             <input type="hidden" name="_csrf" th:value="${_csrf.token}">
         </form>
     </div>
@@ -59,44 +63,25 @@
                 });
                 
                 // Handle bulk actions
-                $('#markAllAsRead').click(function(e) {
-                    e.preventDefault();
-                    // Implementation to be added
-                    alert('Mark all as read feature will be implemented soon');
-                });
-                
-                $('#markSelectedAsRead').click(function(e) {
-                    e.preventDefault();
-                    const selectedIds = getSelectedIds();
-                    if (selectedIds.length === 0) {
-                        alert('Please select at least one email');
-                        return;
-                    }
-                    // Implementation to be added
-                    alert('Mark selected as read feature will be implemented soon');
-                });
-                
-                $('#markSelectedAsUnread').click(function(e) {
-                    e.preventDefault();
-                    const selectedIds = getSelectedIds();
-                    if (selectedIds.length === 0) {
-                        alert('Please select at least one email');
-                        return;
-                    }
-                    // Implementation to be added
-                    alert('Mark selected as unread feature will be implemented soon');
-                });
-                
                 $('#moveSelectedToTrash').click(function(e) {
                     e.preventDefault();
                     const selectedIds = getSelectedIds();
                     if (selectedIds.length === 0) {
-                        alert('Please select at least one email');
+                        alert('Please select at least one draft');
                         return;
                     }
                     
                     $('#selectedEmailIds').val(selectedIds.join(','));
                     $('#bulkActionForm').attr('action', '/emails/trash').submit();
+                });
+                
+                // Handle single item trash
+                $('.move-to-trash').click(function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const emailId = $(this).data('email-id');
+                    $('#singleEmailId').val(emailId);
+                    $('#singleActionForm').attr('action', '/emails/trash').submit();
                 });
                 
                 // Helper function to get selected email IDs
@@ -116,7 +101,7 @@
                 // Make entire email item clickable (except for controls)
                 $('.email-item').click(function(e) {
                     // Don't trigger if clicking on a checkbox or button
-                    if (!$(e.target).is('.form-check-input, button, .dropdown-toggle, .dropdown-menu, .dropdown-item')) {
+                    if (!$(e.target).is('.form-check-input, button, .dropdown-toggle, .dropdown-menu, .dropdown-item, .bi-trash')) {
                         const href = $(this).find('a').attr('href');
                         if (href) {
                             window.location.href = href;

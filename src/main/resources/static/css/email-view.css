@@ -1,0 +1,210 @@
+/* Email View Styles */
+.email-container {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+    overflow: hidden;
+}
+
+.email-header {
+    padding: 20px;
+    border-bottom: 1px solid #eaeaea;
+}
+
+.email-subject {
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+    font-weight: 600;
+    color: #333;
+}
+
+.email-meta {
+    margin-bottom: 15px;
+}
+
+.sender-info {
+    display: flex;
+    align-items: center;
+}
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #4a86e8;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-right: 15px;
+}
+
+.sender-name {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.sender-email {
+    font-size: 0.85rem;
+}
+
+.recipients {
+    margin-top: 10px;
+    font-size: 0.9rem;
+}
+
+.email-body {
+    padding: 25px;
+}
+
+.email-content {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #333;
+    white-space: pre-wrap;
+    margin-bottom: 30px;
+}
+
+.email-attachments {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #eaeaea;
+}
+
+.email-attachments h5 {
+    font-size: 1rem;
+    margin-bottom: 15px;
+    font-weight: 600;
+    color: #555;
+}
+
+.attachment-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.attachment-item {
+    width: calc(33.333% - 10px);
+    min-width: 200px;
+    border: 1px solid #eaeaea;
+    border-radius: 6px;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.attachment-item:hover {
+    border-color: #ccc;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.attachment-link {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    color: inherit;
+    text-decoration: none;
+}
+
+.attachment-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    margin-right: 12px;
+}
+
+.attachment-icon i {
+    font-size: 1.3rem;
+    color: #555;
+}
+
+.attachment-details {
+    flex: 1;
+}
+
+.attachment-name {
+    font-weight: 500;
+    margin-bottom: 2px;
+    word-break: break-all;
+}
+
+.attachment-size {
+    font-size: 0.8rem;
+}
+
+/* Email actions */
+.email-actions {
+    margin-bottom: 20px;
+}
+
+.email-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.dropdown-item {
+    cursor: pointer;
+}
+
+.dropdown-item form {
+    display: inline;
+}
+
+.dropdown-item button {
+    background: none;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+}
+
+/* Dark mode compatibility */
+@media (prefers-color-scheme: dark) {
+    .email-container {
+        background-color: #2d2d2d;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+    
+    .email-header {
+        border-bottom-color: #444;
+    }
+    
+    .email-subject {
+        color: #eee;
+    }
+    
+    .email-content {
+        color: #ddd;
+    }
+    
+    .avatar {
+        background-color: #5c91e6;
+    }
+    
+    .attachment-item {
+        border-color: #444;
+    }
+    
+    .attachment-item:hover {
+        border-color: #666;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    
+    .attachment-icon {
+        background-color: #3a3a3a;
+    }
+    
+    .attachment-icon i {
+        color: #ddd;
+    }
+} 

@@ -73,6 +73,12 @@
                                 <i class="bi bi-trash"></i> Trash
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" th:classappend="${#httpServletRequest.requestURI == '/diagnostics/email-check' ? 'active' : ''}" 
+                               th:href="@{/diagnostics/email-check}">
+                                <i class="bi bi-wrench"></i> Diagnostics
+                            </a>
+                        </li>
                     </ul>
                 </div>
             </nav>

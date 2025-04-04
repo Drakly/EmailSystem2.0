@@ -1,44 +1,111 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
-    <div th:fragment="email-list">
+    <div th:fragment="email-list(folderType)">
         <div class="email-list">
-            <div th:if="${emails.empty}" class="text-center py-5">
+            <div th:if="${emails.empty}" class="empty-state">
+                <i class="bi bi-envelope"></i>
                 <p class="text-muted">No emails found</p>
             </div>
             
-            <div th:each="email : ${emails}" class="email-item p-3 border-bottom">
-                <div class="d-flex align-items-center">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" th:value="${email.id}">
+            <div th:unless="${emails.empty}">
+                <div class="d-flex p-3 border-bottom email-header">
+                    <div class="checkbox-container">
+                        <input class="form-check-input" type="checkbox" id="selectAll">
+                        <label class="form-check-label" for="selectAll"></label>
                     </div>
-                    <div class="ms-3 flex-grow-1">
-                        <a th:href="@{/email/{id}(id=${email.id})}" class="text-decoration-none text-dark">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div th:class="${!email.read ? 'fw-bold' : ''}">
-                                    <span th:text="${email.sender.firstName + ' ' + email.sender.lastName}">Sender Name</span>
+                    <div class="ms-auto">
+                        <span class="text-muted" th:text="${emails.totalElements} + ' email' + (${emails.totalElements != 1 ? 's' : ''})">0 emails</span>
+                    </div>
+                </div>
+                
+                <div th:each="email : ${emails}" class="email-item p-3 border-bottom" th:classappend="${!email.read ? 'unread' : ''}">
+                    <div class="d-flex align-items-center">
+                        <div class="checkbox-container">
+                            <input class="form-check-input" type="checkbox" th:value="${email.id}">
+                        </div>
+                        <div th:if="${email.starred}" class="ms-2 starred-icon">
+                            <i class="bi bi-star-fill text-warning"></i>
+                        </div>
+                        <div class="ms-3 flex-grow-1">
+                            <!-- Different link destination for drafts -->
+                            <a th:href="${folderType == 'drafts' ? '/compose?draft=' + email.id : '/email/' + email.id}" 
+                               class="text-decoration-none text-dark">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div th:class="${!email.read ? 'fw-bold' : ''}">
+                                        <!-- Different display based on folder -->
+                                        <span th:if="${folderType == 'sent'}">
+                                            To: <span th:text="${email.recipient != null ? email.recipient.firstName + ' ' + email.recipient.lastName : '(No recipient)'}">Recipient</span>
+                                        </span>
+                                        <span th:if="${folderType == 'drafts'}">
+                                            <span th:if="${email.recipients != null && !#strings.isEmpty(email.recipients)}" th:text="${email.recipients}">Recipients</span>
+                                            <span th:unless="${email.recipients != null && !#strings.isEmpty(email.recipients)}" class="text-muted">(No recipients)</span>
+                                        </span>
+                                        <span th:if="${folderType != 'sent' && folderType != 'drafts'}" 
+                                              th:text="${email.sender != null ? email.sender.firstName + ' ' + email.sender.lastName : ''}">
+                                            Sender
+                                        </span>
+                                    </div>
+                                    <span class="date-badge" th:text="${#temporals.format(email.createdAt, 'MMM d')}">Date</span>
                                 </div>
-                                <small class="text-muted" th:text="${#temporals.format(email.sentAt, 'MMM d')}">Date</small>
-                            </div>
-                            <div class="subject" th:text="${email.subject}">Subject</div>
-                            <div class="preview text-muted text-truncate" th:text="${email.content}">Preview</div>
-                        </a>
+                                <div class="subject">
+                                    <span th:if="${folderType == 'drafts'}">
+                                        <span th:text="${email.subject != null && !#strings.isEmpty(email.subject) ? email.subject : '(No subject)'}">Subject</span>
+                                    </span>
+                                    <span th:unless="${folderType == 'drafts'}" th:text="${email.subject}">Subject</span>
+                                </div>
+                                <div class="preview text-muted text-truncate">
+                                    <span th:if="${folderType == 'drafts'}">
+                                        <span th:text="${email.content != null && !#strings.isEmpty(email.content) ? email.content : '(No content)'}">Content</span>
+                                    </span>
+                                    <span th:unless="${folderType == 'drafts'}" th:text="${email.content}">Content</span>
+                                </div>
+                            </a>
+                        </div>
+                        
+                        <!-- Different actions based on folder -->
+                        <div class="ms-2 d-flex">
+                            <!-- Trash folder - show restore button -->
+                            <th:block th:if="${folderType == 'trash'}">
+                                <button type="button" class="btn btn-sm btn-restore restore-email" 
+                                        th:data-email-id="${email.id}" title="Restore from trash">
+                                    <i class="bi bi-arrow-up-circle"></i>
+                                </button>
+                            </th:block>
+                            
+                            <!-- Drafts folder - show delete button -->
+                            <th:block th:if="${folderType == 'drafts'}">
+                                <button type="button" class="btn btn-sm btn-trash move-to-trash" 
+                                        th:data-email-id="${email.id}" title="Move to trash">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </th:block>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
         
-        <nav th:if="${emails.totalPages > 1}" class="mt-4">
-            <ul class="pagination justify-content-center">
+        <nav th:if="${emails.totalPages > 1}" class="p-3">
+            <ul class="pagination justify-content-center m-0">
                 <li class="page-item" th:classappend="${emails.first ? 'disabled' : ''}">
-                    <a class="page-link" th:href="@{${#httpServletRequest.requestURI}(page=${emails.number - 1})}">Previous</a>
+                    <a class="page-link" th:href="@{${folderType == 'inbox' ? '/inbox' : 
+                                                        folderType == 'sent' ? '/sent' : 
+                                                        folderType == 'drafts' ? '/drafts' : 
+                                                        folderType == 'trash' ? '/trash' : '/inbox'}(page=${emails.number - 1})}">Previous</a>
                 </li>
                 <li class="page-item" th:each="i : ${#numbers.sequence(0, emails.totalPages - 1)}"
                     th:classappend="${i == emails.number ? 'active' : ''}">
-                    <a class="page-link" th:href="@{${#httpServletRequest.requestURI}(page=${i})}" th:text="${i + 1}">1</a>
+                    <a class="page-link" th:href="@{${folderType == 'inbox' ? '/inbox' : 
+                                                       folderType == 'sent' ? '/sent' : 
+                                                       folderType == 'drafts' ? '/drafts' : 
+                                                       folderType == 'trash' ? '/trash' : '/inbox'}(page=${i})}" th:text="${i + 1}">1</a>
                 </li>
                 <li class="page-item" th:classappend="${emails.last ? 'disabled' : ''}">
-                    <a class="page-link" th:href="@{${#httpServletRequest.requestURI}(page=${emails.number + 1})}">Next</a>
+                    <a class="page-link" th:href="@{${folderType == 'inbox' ? '/inbox' : 
+                                                       folderType == 'sent' ? '/sent' : 
+                                                       folderType == 'drafts' ? '/drafts' : 
+                                                       folderType == 'trash' ? '/trash' : '/inbox'}(page=${emails.number + 1})}">Next</a>
                 </li>
             </ul>
         </nav>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}">
+<head>
+    <title>Email System Diagnostics</title>
+    <style>
+        .diagnostic-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .diagnostic-header {
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .email-list {
+            margin-top: 1rem;
+        }
+        
+        .email-item {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+        
+        .email-meta {
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+        
+        .email-subject {
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div layout:fragment="content">
+        <div class="container">
+            <h2 class="mb-4">Email System Diagnostics</h2>
+            
+            <div class="alert alert-info">
+                <strong>Current User:</strong> <span th:text="${currentUser.firstName + ' ' + currentUser.lastName + ' (' + currentUser.email + ')'}">User</span>
+                <br>
+                <strong>User ID:</strong> <span th:text="${currentUser.id}">ID</span>
+            </div>
+            
+            <div class="diagnostic-section">
+                <div class="diagnostic-header">
+                    <h4>Sent Emails</h4>
+                    <p>Total sent: <span th:text="${sentCount}">0</span></p>
+                </div>
+                
+                <div class="email-list" th:if="${sentEmails != null and !sentEmails.empty}">
+                    <div class="email-item" th:each="email : ${sentEmails}">
+                        <div class="email-meta">
+                            <strong>To:</strong> <span th:text="${email.recipient.email}">Recipient</span>
+                            <strong>Date:</strong> <span th:text="${#temporals.format(email.createdAt, 'MMM d, yyyy h:mm a')}">Date</span>
+                        </div>
+                        <div class="email-subject" th:text="${email.subject}">Subject</div>
+                        <div class="email-meta">
+                            <strong>Sent:</strong> <span th:text="${email.sent}">True</span>
+                            <strong>Draft:</strong> <span th:text="${email.draft}">False</span>
+                            <strong>Trash:</strong> <span th:text="${email.trash}">False</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-warning" th:if="${sentEmails == null or sentEmails.empty}">
+                    No sent emails found.
+                </div>
+            </div>
+            
+            <div class="diagnostic-section">
+                <div class="diagnostic-header">
+                    <h4>Received Emails</h4>
+                    <p>Total received: <span th:text="${receivedCount}">0</span></p>
+                </div>
+                
+                <div class="email-list" th:if="${receivedEmails != null and !receivedEmails.empty}">
+                    <div class="email-item" th:each="email : ${receivedEmails}">
+                        <div class="email-meta">
+                            <strong>From:</strong> <span th:text="${email.sender.email}">Sender</span>
+                            <strong>Date:</strong> <span th:text="${#temporals.format(email.createdAt, 'MMM d, yyyy h:mm a')}">Date</span>
+                        </div>
+                        <div class="email-subject" th:text="${email.subject}">Subject</div>
+                        <div class="email-meta">
+                            <strong>Read:</strong> <span th:text="${email.read}">True</span>
+                            <strong>Trash:</strong> <span th:text="${email.trash}">False</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-warning" th:if="${receivedEmails == null or receivedEmails.empty}">
+                    No received emails found.
+                </div>
+            </div>
+            
+            <div class="diagnostic-section">
+                <h4>Repository Query Information</h4>
+                <ul>
+                    <li><strong>Sent Emails Query:</strong> findBySenderIdAndSentTrueAndTrashFalseOrderByCreatedAtDesc</li>
+                    <li><strong>Inbox Emails Query:</strong> findByRecipientIdAndTrashFalseOrderByCreatedAtDesc</li>
+                </ul>
+            </div>
+            
+            <a href="/inbox" class="btn btn-primary">Return to Inbox</a>
+        </div>
+    </div>
+</body>
+</html> 

@@ -5,21 +5,32 @@
 <head>
     <title>Compose - Email System</title>
     <link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-bs4.min.css" rel="stylesheet">
+    <link th:href="@{/css/compose.css}" rel="stylesheet">
 </head>
 <body>
     <div layout:fragment="content">
         <div class="card">
             <div class="card-body">
-                <form th:action="@{/send}" th:object="${emailDTO}" method="post" enctype="multipart/form-data">
+                <div class="compose-header">
+                    <i class="bi bi-pencil-square"></i>
+                    <h4>Compose New Message</h4>
+                    <small class="text-muted">This email will be sent to users within the system only</small>
+                </div>
+                
+                <form th:action="@{/emails/send}" th:object="${emailDTO}" method="post" enctype="multipart/form-data">
                     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                    <input type="hidden" id="draftId" th:field="*{id}" />
+                    
                     <div class="mb-3">
-                        <input type="text" class="form-control" th:field="*{recipients}" placeholder="To" required>
+                        <label for="recipients" class="form-label">System Users (separated by commas)</label>
+                        <input type="text" class="form-control" th:field="*{recipients}" id="recipients" placeholder="Enter email addresses of system users, separated by commas">
                         <div class="text-danger" th:if="${#fields.hasErrors('recipients')}" th:errors="*{recipients}"></div>
                     </div>
                     
                     <div class="mb-3">
-                        <input type="text" class="form-control" th:field="*{subject}" placeholder="Subject" required>
+                        <input type="text" class="form-control" th:field="*{subject}" id="subject" placeholder="Subject" required>
                         <div class="text-danger" th:if="${#fields.hasErrors('subject')}" th:errors="*{subject}"></div>
+                        <div class="char-counter" id="subjectCounter">0/100</div>
                     </div>
                     
                     <div class="mb-3">
@@ -27,13 +38,22 @@
                         <div class="text-danger" th:if="${#fields.hasErrors('content')}" th:errors="*{content}"></div>
                     </div>
                     
-                    <div class="mb-3">
-                        <input type="file" class="form-control" name="attachments" multiple>
+                    <div class="mb-3 file-attachments">
+                        <div class="file-drop-zone" id="fileDropZone">
+                            <i class="bi bi-cloud-arrow-up"></i>
+                            <p>Drop files here or click to upload</p>
+                        </div>
+                        <input type="file" class="form-control d-none" name="attachments" id="fileInput" multiple>
+                        <div id="fileList" class="mt-2"></div>
                     </div>
                     
-                    <div class="d-flex justify-content-between">
-                        <button type="submit" class="btn btn-primary">Send</button>
-                        <button type="button" class="btn btn-secondary" onclick="saveDraft()">Save as Draft</button>
+                    <div class="action-buttons">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send"></i> Send Message
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="saveDraft()">
+                            <i class="bi bi-save"></i> Save as Draft
+                        </button>
                     </div>
                 </form>
             </div>
@@ -51,28 +71,314 @@
                         ['font', ['strikethrough']],
                         ['para', ['ul', 'ol']],
                         ['insert', ['link']]
-                    ]
+                    ],
+                    placeholder: 'Compose your message here...'
                 });
+
+                // Initialize saved attachments if any
+                window.savedAttachments = [];
+                /*[# th:if="${emailDTO.savedAttachments != null && !emailDTO.savedAttachments.empty}"]*/
+                window.savedAttachments = /*[[${emailDTO.savedAttachments}]]*/ [];
+                /*[/]*/
+
+                // Form submission validation
+                $('form').on('submit', function(e) {
+                    // Clear any existing error messages
+                    $('.text-danger').remove();
+                    
+                    // Validate required fields
+                    let isValid = true;
+                    
+                    // Store form submission type (if clicking save draft, we should allow empty recipients)
+                    const isSavingDraft = $(document.activeElement).text().trim().includes('Save as Draft') || 
+                                          this.action.includes('save-draft');
+                    
+                    // Check if recipients field is empty (only validate if not saving as draft)
+                    if ($('#recipients').val().trim() === '' && !isSavingDraft) {
+                        e.preventDefault();
+                        $('#recipients').after('<div class="text-danger mt-1">Recipients are required</div>');
+                        isValid = false;
+                    }
+                    
+                    // Validate subject
+                    if ($('#subject').val().trim() === '') {
+                        e.preventDefault();
+                        $('#subject').after('<div class="text-danger mt-1">Subject is required</div>');
+                        isValid = false;
+                    }
+                    
+                    // Validate content
+                    const content = $('#content').summernote('code').trim();
+                    if (content === '' || content === '<p><br></p>') {
+                        e.preventDefault();
+                        $('#content').next().after('<div class="text-danger mt-1">Message content is required</div>');
+                        isValid = false;
+                    }
+                    
+                    return isValid;
+                });
+
+                // Create autosave toast element
+                if ($('.autosave-toast').length === 0) {
+                    $('body').append('<div class="autosave-toast">Draft saved automatically</div>');
+                }
+                
+                // Subject character counter
+                setupSubjectCounter();
+                
+                // File upload handling
+                setupFileUpload();
+
+                setupAutoSave();
             });
+            
+            // Character counter for subject
+            function setupSubjectCounter() {
+                const subject = $('#subject');
+                const counter = $('#subjectCounter');
+                const maxLength = 100;
+                
+                subject.on('input', function() {
+                    const length = subject.val().length;
+                    counter.text(`${length}/${maxLength}`);
+                    
+                    if (length > maxLength * 0.8 && length <= maxLength) {
+                        counter.removeClass('danger').addClass('warning');
+                    } else if (length > maxLength) {
+                        counter.removeClass('warning').addClass('danger');
+                    } else {
+                        counter.removeClass('warning danger');
+                    }
+                });
+                
+                // Initialize counter
+                subject.trigger('input');
+            }
+            
+            // File upload handling
+            function setupFileUpload() {
+                const dropZone = $('#fileDropZone');
+                const fileInput = $('#fileInput');
+                const fileList = $('#fileList');
+                
+                // Click on drop zone to trigger file input
+                dropZone.on('click', function() {
+                    fileInput.click();
+                });
+                
+                // Handle drag and drop events
+                dropZone.on('dragover', function(e) {
+                    e.preventDefault();
+                    dropZone.addClass('drag-over');
+                });
+                
+                dropZone.on('dragleave', function() {
+                    dropZone.removeClass('drag-over');
+                });
+                
+                dropZone.on('drop', function(e) {
+                    e.preventDefault();
+                    dropZone.removeClass('drag-over');
+                    
+                    if (e.originalEvent.dataTransfer.files.length) {
+                        fileInput[0].files = e.originalEvent.dataTransfer.files;
+                        updateFileList();
+                    }
+                });
+                
+                // Handle file selection through input
+                fileInput.on('change', function() {
+                    updateFileList();
+                });
+                
+                function updateFileList() {
+                    fileList.empty();
+                    
+                    // Add existing attachments if any
+                    if (window.savedAttachments && window.savedAttachments.length) {
+                        window.savedAttachments.forEach(attachment => {
+                            fileList.append(`
+                                <div class="attachment-item" data-id="${attachment.id}">
+                                    <i class="bi bi-paperclip me-2"></i>
+                                    <span>${attachment.filename}</span>
+                                    <small class="ms-2 text-muted">${attachment.size} bytes</small>
+                                    <button type="button" class="btn btn-sm btn-link text-danger remove-attachment" 
+                                            data-id="${attachment.id}">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                            `);
+                        });
+                    }
+                    
+                    // Add newly selected files
+                    if (fileInput[0].files.length) {
+                        const fileItemsHtml = Array.from(fileInput[0].files).map(file => {
+                            const size = formatFileSize(file.size);
+                            return `
+                                <div class="attachment-item">
+                                    <i class="bi bi-paperclip me-2"></i>
+                                    <span>${file.name}</span>
+                                    <small class="ms-2 text-muted">${size}</small>
+                                </div>
+                            `;
+                        }).join('');
+                        
+                        fileList.append(fileItemsHtml);
+                    }
+                    
+                    // Bind event handler for removing attachments
+                    $('.remove-attachment').on('click', function() {
+                        const attachmentId = $(this).data('id');
+                        // Remove from DOM
+                        $(this).closest('.attachment-item').remove();
+                        // Remove from saved attachments array
+                        if (window.savedAttachments) {
+                            window.savedAttachments = window.savedAttachments.filter(a => a.id !== attachmentId);
+                        }
+                    });
+                }
+                
+                function formatFileSize(bytes) {
+                    if (bytes < 1024) return bytes + ' B';
+                    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+                    return (bytes / 1048576).toFixed(1) + ' MB';
+                }
+            }
 
             function saveDraft() {
                 const form = document.querySelector('form');
-                form.action = '[[@{/save-draft}]]';
+                form.action = '[[@{/emails/save-draft-form}]]';
                 form.submit();
             }
 
-            // Auto-save draft every 30 seconds
-            setInterval(function() {
-                const content = $('#content').summernote('code');
-                if (content.trim()) {
-                    // Only auto-save if there's content
-                    $.post('[[@{/save-draft}]]', {
-                        recipients: $('#recipients').val(),
-                        subject: $('#subject').val(),
-                        content: content
+            function setupAutoSave() {
+                // Variables for tracking changes
+                let lastSavedContent = $('#content').summernote('code');
+                let lastSavedSubject = $('#subject').val();
+                let lastSavedRecipients = $('#recipients').val();
+                let saveTimeout;
+                let saving = false;
+                
+                function checkForChanges() {
+                    const currentContent = $('#content').summernote('code');
+                    const currentSubject = $('#subject').val();
+                    const currentRecipients = $('#recipients').val();
+                    
+                    // Check if any of the fields have changed
+                    if (currentContent !== lastSavedContent || 
+                        currentSubject !== lastSavedSubject || 
+                        currentRecipients !== lastSavedRecipients) {
+                        
+                        // Clear previous timeout if exists
+                        if (saveTimeout) {
+                            clearTimeout(saveTimeout);
+                        }
+                        
+                        // Set a new timeout for saving
+                        saveTimeout = setTimeout(function() {
+                            // Only proceed if not already saving
+                            if (!saving) {
+                                saving = true;
+                                saveAsDraft();
+                            }
+                        }, 3000); // 3 seconds delay
+                    }
+                }
+                
+                // Save as draft via AJAX
+                function saveAsDraft() {
+                    // Update last saved values
+                    lastSavedContent = $('#content').summernote('code');
+                    lastSavedSubject = $('#subject').val();
+                    lastSavedRecipients = $('#recipients').val();
+                    
+                    // Get draft ID if exists
+                    const draftId = $('#draftId').val();
+                    
+                    // Prepare form data
+                    const formData = new FormData();
+                    formData.append('subject', lastSavedSubject);
+                    formData.append('recipients', lastSavedRecipients);
+                    formData.append('content', lastSavedContent);
+                    formData.append('_csrf', $('input[name="_csrf"][value]').val() || $('input[name="_csrf.token"]').val());
+                    
+                    // Add draft ID if exists
+                    if (draftId) {
+                        formData.append('id', draftId);
+                    }
+                    
+                    // Add existing attachment IDs
+                    const attachments = [];
+                    $('.attachment-item').each(function() {
+                        if ($(this).data('id')) {
+                            attachments.push($(this).data('id'));
+                        }
+                    });
+                    
+                    if (attachments.length > 0) {
+                        formData.append('attachmentIds', attachments.join(','));
+                    }
+                    
+                    // Add new file attachments if any
+                    const fileInput = document.getElementById('fileInput');
+                    if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                        for (let i = 0; i < fileInput.files.length; i++) {
+                            formData.append('attachments', fileInput.files[i]);
+                        }
+                    }
+                    
+                    // Send AJAX request
+                    $.ajax({
+                        url: '[[@{/emails/save-draft}]]',
+                        type: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        success: function(response) {
+                            saving = false;
+                            
+                            // Handle JSON response
+                            try {
+                                let result;
+                                if (typeof response === 'string') {
+                                    result = JSON.parse(response);
+                                } else {
+                                    result = response;
+                                }
+                                
+                                if (result.success && result.id) {
+                                    $('#draftId').val(result.id);
+                                }
+                                
+                                // Show success message
+                                showAutoSaveToast();
+                            } catch (e) {
+                                console.error('Error parsing response:', e);
+                            }
+                        },
+                        error: function(xhr) {
+                            saving = false;
+                            console.error('Error saving draft:', xhr.responseText);
+                        }
                     });
                 }
-            }, 30000);
+                
+                // Show autosave toast notification
+                function showAutoSaveToast() {
+                    const toast = $('.autosave-toast');
+                    toast.addClass('show');
+                    
+                    setTimeout(function() {
+                        toast.removeClass('show');
+                    }, 3000);
+                }
+                
+                // Setup change listeners
+                $('#content').on('summernote.change', checkForChanges);
+                $('#subject').on('input', checkForChanges);
+                $('#recipients').on('input', checkForChanges);
+            }
         </script>
     </th:block>
 </body>
