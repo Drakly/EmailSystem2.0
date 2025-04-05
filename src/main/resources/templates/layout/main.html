@@ -8,15 +8,73 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
     <link th:href="@{/css/style.css}" rel="stylesheet">
+    <style>
+        .logout-button {
+            color: white;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            margin-left: 15px;
+            transition: all 0.2s ease-in-out;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        .logout-button:hover {
+            background-color: rgba(255,255,255,0.2);
+            color: white;
+        }
+        .home-button {
+            color: white;
+            text-decoration: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            border: 1px solid rgba(255,255,255,0.3);
+            margin-right: 15px;
+        }
+        .home-button:hover {
+            background-color: rgba(255,255,255,0.2);
+            color: white;
+        }
+        .navbar-logo {
+            display: flex;
+            align-items: center;
+            font-weight: bold;
+            text-decoration: none;
+            color: white;
+        }
+        .navbar-logo:hover {
+            color: white;
+        }
+        .nav-item .nav-link {
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 5px;
+        }
+        .nav-item .nav-link:hover {
+            background-color: rgba(13, 110, 253, 0.1);
+        }
+        .nav-link.active {
+            background-color: rgba(13, 110, 253, 0.2);
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
     <header class="navbar navbar-dark bg-primary fixed-top">
         <div class="container-fluid">
-            <button class="navbar-toggler d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <a class="navbar-brand" href="#">Email System</a>
             <div class="d-flex align-items-center">
+                <button class="navbar-toggler d-md-none me-2" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <a class="navbar-logo" th:href="@{/dashboard}">
+                    <i class="bi bi-envelope-fill me-2"></i> Email System
+                </a>
+            </div>
+            <div class="d-flex align-items-center">
+                <a th:href="@{/dashboard}" class="home-button">
+                    <i class="bi bi-house-door"></i> Home
+                </a>
                 <div class="dropdown">
                     <button class="btn btn-link nav-link dropdown-toggle text-white" type="button" data-bs-toggle="dropdown">
                         <i class="bi bi-person-circle"></i>
@@ -34,6 +92,11 @@
                         </li>
                     </ul>
                 </div>
+                <form th:action="@{/logout}" method="post">
+                    <button type="submit" class="logout-button">
+                        <i class="bi bi-box-arrow-right me-1"></i> Logout
+                    </button>
+                </form>
             </div>
         </div>
     </header>
@@ -50,9 +113,18 @@
                     </div>
                     <ul class="nav flex-column">
                         <li class="nav-item">
+                            <a class="nav-link" th:classappend="${#httpServletRequest.requestURI == '/dashboard' ? 'active' : ''}" 
+                               th:href="@{/dashboard}">
+                                <i class="bi bi-speedometer2"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" th:classappend="${#httpServletRequest.requestURI == '/inbox' ? 'active' : ''}" 
                                th:href="@{/inbox}">
                                 <i class="bi bi-inbox"></i> Inbox
+                                <span class="badge bg-danger rounded-pill float-end" 
+                                      th:if="${unreadCount != null && unreadCount > 0}" 
+                                      th:text="${unreadCount}">0</span>
                             </a>
                         </li>
                         <li class="nav-item">
@@ -73,7 +145,8 @@
                                 <i class="bi bi-trash"></i> Trash
                             </a>
                         </li>
-                        <li class="nav-item">
+                        <li class="nav-item mt-3">
+                            <hr>
                             <a class="nav-link" th:classappend="${#httpServletRequest.requestURI == '/diagnostics/email-check' ? 'active' : ''}" 
                                th:href="@{/diagnostics/email-check}">
                                 <i class="bi bi-wrench"></i> Diagnostics

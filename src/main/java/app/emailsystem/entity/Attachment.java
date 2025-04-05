@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -20,13 +21,16 @@ public class Attachment {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     
-    @Column(nullable = false)
+    @Column(name = "file_name", nullable = false)
     private String filename;
+    
+    @Column(name = "file_path", nullable = false)
+    private String filePath;
     
     @Column(nullable = false)
     private String contentType;
     
-    @Column(nullable = false)
+    @Column(name = "file_size", nullable = false)
     private long size;
     
     @Lob
@@ -36,4 +40,18 @@ public class Attachment {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "email_id")
     private Email email;
+    
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+    
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        
+        if (filePath == null && filename != null) {
+            filePath = "/attachments/" + filename;
+        }
+    }
 } 

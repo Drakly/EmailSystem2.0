@@ -3,7 +3,9 @@ package app.emailsystem.service;
 import app.emailsystem.dto.AttachmentDTO;
 import app.emailsystem.entity.Attachment;
 import app.emailsystem.entity.Email;
+import app.emailsystem.exception.EmailSystemException;
 import app.emailsystem.exception.ResourceNotFoundException;
+import app.emailsystem.mapper.AttachmentMapper;
 import app.emailsystem.repository.AttachmentRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +18,9 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -27,10 +31,12 @@ import java.util.stream.Collectors;
 public class AttachmentService {
 
     private final AttachmentRepository attachmentRepository;
+    private final AttachmentMapper attachmentMapper;
 
     @Autowired
-    public AttachmentService(AttachmentRepository attachmentRepository) {
+    public AttachmentService(AttachmentRepository attachmentRepository, AttachmentMapper attachmentMapper) {
         this.attachmentRepository = attachmentRepository;
+        this.attachmentMapper = attachmentMapper;
     }
 
     /**
@@ -50,21 +56,14 @@ public class AttachmentService {
         try {
             for (MultipartFile file : files) {
                 if (!file.isEmpty()) {
-                    Attachment attachment = Attachment.builder()
-                            .filename(file.getOriginalFilename())
-                            .contentType(file.getContentType())
-                            .size(file.getSize())
-                            .data(file.getBytes())
-                            .email(email)
-                            .build();
-
+                    Attachment attachment = attachmentMapper.toEntity(file, email);
                     savedAttachments.add(attachmentRepository.save(attachment));
                     log.info("Saved attachment: {} for email ID: {}", file.getOriginalFilename(), email.getId());
                 }
             }
         } catch (IOException e) {
             log.error("Failed to save attachments", e);
-            throw new RuntimeException("Failed to save attachments: " + e.getMessage());
+            throw new EmailSystemException("Failed to save attachments", e);
         }
 
         return savedAttachments;
@@ -78,7 +77,7 @@ public class AttachmentService {
      */
     public Attachment getAttachment(UUID id) {
         return attachmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Attachment not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Attachment", "id", id));
     }
 
     /**
@@ -99,9 +98,18 @@ public class AttachmentService {
      * @return list of attachment DTOs
      */
     public List<AttachmentDTO> convertToDto(List<Attachment> attachments) {
-        return attachments.stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
+        List<AttachmentDTO> dtos = attachmentMapper.toDtoList(attachments);
+        
+        // Add download URLs
+        for (AttachmentDTO dto : dtos) {
+            String downloadUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+                    .path("/attachment/")
+                    .path(dto.getId().toString())
+                    .toUriString();
+            dto.setDownloadUrl(downloadUrl);
+        }
+        
+        return dtos;
     }
 
     /**
@@ -111,19 +119,16 @@ public class AttachmentService {
      * @return attachment DTO
      */
     public AttachmentDTO convertToDto(Attachment attachment) {
+        AttachmentDTO dto = attachmentMapper.toDto(attachment);
+        
+        // Add download URL
         String downloadUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
                 .path("/attachment/")
                 .path(attachment.getId().toString())
                 .toUriString();
-
-        return AttachmentDTO.builder()
-                .id(attachment.getId())
-                .filename(attachment.getFilename())
-                .contentType(attachment.getContentType())
-                .size(attachment.getSize())
-                .emailId(attachment.getEmail().getId())
-                .downloadUrl(downloadUrl)
-                .build();
+        dto.setDownloadUrl(downloadUrl);
+        
+        return dto;
     }
 
     /**
@@ -144,5 +149,36 @@ public class AttachmentService {
      */
     public List<Attachment> getAttachmentsByEmailId(UUID emailId) {
         return attachmentRepository.findByEmailId(emailId);
+    }
+
+    /**
+     * Check if multiple emails have attachments
+     * 
+     * @param emailIds the list of email IDs to check
+     * @return map of email IDs to a boolean indicating whether they have attachments
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, Boolean> checkEmailsHaveAttachments(List<UUID> emailIds) {
+        Map<UUID, Boolean> result = new HashMap<>();
+        
+        // Initialize all to false
+        for (UUID emailId : emailIds) {
+            result.put(emailId, false);
+        }
+        
+        // Perform a batch query to get all email IDs that have attachments
+        List<Object[]> emailsWithAttachmentCounts = attachmentRepository.findEmailIdsWithAttachmentCounts(emailIds);
+        
+        // Update the result map based on the query results
+        for (Object[] row : emailsWithAttachmentCounts) {
+            UUID emailId = (UUID) row[0];
+            Long count = (Long) row[1];
+            
+            if (count > 0) {
+                result.put(emailId, true);
+            }
+        }
+        
+        return result;
     }
 } 

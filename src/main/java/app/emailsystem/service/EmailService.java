@@ -21,6 +21,11 @@ import java.util.List;
 import java.util.ArrayList;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.multipart.MultipartFile;
+import app.emailsystem.mapper.EmailMapper;
+import org.hibernate.Hibernate;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -30,25 +35,65 @@ public class EmailService {
     private final EmailRepository emailRepository;
     private final UserRepository userRepository;
     private final AttachmentService attachmentService;
+    private final EmailMapper emailMapper;
 
     @Autowired
-    public EmailService(EmailRepository emailRepository, UserRepository userRepository, AttachmentService attachmentService) {
+    public EmailService(EmailRepository emailRepository, UserRepository userRepository, AttachmentService attachmentService, EmailMapper emailMapper) {
         this.emailRepository = emailRepository;
         this.userRepository = userRepository;
         this.attachmentService = attachmentService;
+        this.emailMapper = emailMapper;
     }
 
     private static final int PAGE_SIZE = 20;
 
+    /**
+     * Get inbox emails with eager loading of senders and recipients
+     */
     @Transactional(readOnly = true)
-    public Page<Email> getInboxEmails(UUID userId, int page) {
-        log.debug("Fetching inbox emails for user: {}", userId);
-        Page<Email> emails = emailRepository.findByRecipientIdAndTrashFalseOrderByCreatedAtDesc(
-            userId, 
-            PageRequest.of(page, PAGE_SIZE)
-        );
-        log.debug("Found {} inbox emails for user {}", emails.getContent().size(), userId);
-        return emails;
+    public Page<Email> getInboxEmails(UUID userId, int page, int size) {
+        log.debug("Fetching inbox emails for user: {} with page size: {}", userId, size);
+        
+        try {
+            Page<Email> emails = emailRepository.findByRecipientIdAndTrashFalseOrderByCreatedAtDesc(
+                userId,
+                PageRequest.of(page, size)
+            );
+            
+            // Initialize sender and recipient for each email to avoid LazyInitializationExceptions
+            for (Email email : emails.getContent()) {
+                if (email.getSender() != null) {
+                    Hibernate.initialize(email.getSender());
+                }
+                if (email.getRecipient() != null) {
+                    Hibernate.initialize(email.getRecipient());
+                }
+            }
+            
+            log.debug("Found {} inbox emails (page {}, size {}) for user {}", 
+                    emails.getContent().size(), page, size, userId);
+            
+            return emails;
+        } catch (Exception e) {
+            log.error("Error fetching inbox emails: {}", e.getMessage(), e);
+            // Return empty page in case of error
+            return Page.empty(PageRequest.of(page, size));
+        }
+    }
+
+    /**
+     * Find recipient user by email
+     *
+     * @param email the recipient email
+     * @return the recipient user
+     * @throws EmailSystemException if recipient not found
+     */
+    public User findRecipient(String email) {
+        Optional<User> recipient = userRepository.findByEmail(email);
+        if (recipient.isEmpty()) {
+            throw new EmailSystemException("Recipient not found with email: " + email);
+        }
+        return recipient.get();
     }
 
     @Transactional
@@ -56,7 +101,7 @@ public class EmailService {
         log.info("Sending internal email from user {} to recipients {}", senderId, emailDTO.getRecipients());
         
         User sender = userRepository.findById(senderId)
-            .orElseThrow(() -> new ResourceNotFoundException("Sender not found with id: " + senderId));
+            .orElseThrow(() -> new ResourceNotFoundException("User", "id", senderId));
         
         // Parse recipients
         String[] recipientEmails = emailDTO.getRecipients().split(",");
@@ -66,51 +111,34 @@ public class EmailService {
         for (String recipientEmail : recipientEmails) {
             String email = recipientEmail.trim();
             if (!email.isEmpty()) {
-                Optional<User> recipientOpt = userRepository.findByEmail(email);
-                
-                if (recipientOpt.isPresent()) {
-                    User recipient = recipientOpt.get();
+                try {
+                    // Find recipient user
+                    User recipient = findRecipient(email);
                     
-                    try {
-                        // Save to database
-                        Email emailEntity = Email.builder()
-                            .sender(sender)
-                            .recipient(recipient)
-                            .subject(emailDTO.getSubject())
-                            .content(emailDTO.getContent())
-                            .createdAt(LocalDateTime.now())
-                            .read(false)
-                            .sent(true)
-                            .draft(false)
-                            .trash(false)
-                            .starred(false)
-                            .build();
-                        
-                        // Double-check createdAt is set before saving
-                        if (emailEntity.getCreatedAt() == null) {
-                            emailEntity.setCreatedAt(LocalDateTime.now());
-                        }
-                        
-                        Email savedEmail = emailRepository.save(emailEntity);
-                        log.debug("Email saved with ID: {}, Sender: {}, Recipient: {}", 
-                            savedEmail.getId(), savedEmail.getSender().getEmail(), savedEmail.getRecipient().getEmail());
-                        
-                        // Save attachments if any
-                        if (emailDTO.getAttachments() != null && !emailDTO.getAttachments().isEmpty()) {
-                            attachmentService.saveAttachments(savedEmail, emailDTO.getAttachments());
-                        }
-                        
-                        // Force a flush to ensure the email is saved to the database
-                        emailRepository.flush();
-                        
-                        savedEmails.add(savedEmail);
-                        log.info("Email saved successfully for recipient: {}", email);
-                    } catch (Exception e) {
-                        log.error("Error saving email to recipient {}: {}", email, e.getMessage(), e);
+                    // Use the mapper to create the email entity
+                    Email emailEntity = emailMapper.toEntity(emailDTO, sender);
+                    emailEntity.setRecipient(recipient);
+                    
+                    // Save to database
+                    Email savedEmail = emailRepository.save(emailEntity);
+                    log.debug("Email saved with ID: {}, Sender: {}, Recipient: {}", 
+                        savedEmail.getId(), savedEmail.getSender().getEmail(), savedEmail.getRecipient().getEmail());
+                    
+                    // Save attachments if any
+                    if (emailDTO.getAttachments() != null && !emailDTO.getAttachments().isEmpty()) {
+                        attachmentService.saveAttachments(savedEmail, emailDTO.getAttachments());
                     }
-                } else {
+                    
+                    // Force a flush to ensure the email is saved to the database
+                    emailRepository.flush();
+                    
+                    savedEmails.add(savedEmail);
+                    log.info("Email saved successfully for recipient: {}", email);
+                } catch (ResourceNotFoundException e) {
                     log.warn("Recipient not found with email: {}", email);
                     // Continue with other recipients even if one is not found
+                } catch (Exception e) {
+                    log.error("Error saving email to recipient {}: {}", email, e.getMessage(), e);
                 }
             }
         }
@@ -131,7 +159,7 @@ public class EmailService {
         log.info("Saving draft for user: {}", senderId);
         try {
             User sender = userRepository.findById(senderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Sender not found with id: " + senderId));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", senderId));
             
             // If we're updating an existing draft
             Email existingDraft = null;
@@ -149,58 +177,26 @@ public class EmailService {
                 }
             }
             
-            // Build the base draft email
-            Email.EmailBuilder draftBuilder = Email.builder()
-                .sender(sender)
-                .subject(emailDTO.getSubject() != null ? emailDTO.getSubject() : "")
-                .content(emailDTO.getContent() != null ? emailDTO.getContent() : "")
-                .createdAt(LocalDateTime.now())
-                .read(false)
-                .sent(false)
-                .draft(true)
-                .trash(false)
-                .starred(false);
+            // Use the mapper to create a draft email
+            Email draft = emailMapper.toDraftEntity(emailDTO, sender);
                 
             // Set recipient if provided
             if (emailDTO.getRecipients() != null && !emailDTO.getRecipients().isEmpty()) {
                 String primaryRecipient = emailDTO.getRecipients().split(",")[0].trim();
-                Optional<User> recipientOpt = userRepository.findByEmail(primaryRecipient);
-                
-                if (recipientOpt.isPresent()) {
-                    draftBuilder.recipient(recipientOpt.get());
-                } else {
+                try {
+                    User recipient = findRecipient(primaryRecipient);
+                    draft.setRecipient(recipient);
+                } catch (EmailSystemException e) {
                     // If recipient doesn't exist yet, we still save the draft without a recipient
                     log.info("Recipient email not found in system, saving draft without recipient: {}", primaryRecipient);
                     
                     // Set a temporary recipient as sender (we need a not-null recipient due to DB constraint)
                     // This will be replaced when the draft is sent
-                    draftBuilder.recipient(sender);
+                    draft.setRecipient(sender);
                 }
             } else {
                 // Set a temporary recipient as sender (we need a not-null recipient due to DB constraint)
-                draftBuilder.recipient(sender);
-            }
-            
-            Email draft;
-            
-            // If updating existing draft, update its values
-            if (existingDraft != null) {
-                existingDraft.setSubject(emailDTO.getSubject() != null ? emailDTO.getSubject() : "");
-                existingDraft.setContent(emailDTO.getContent() != null ? emailDTO.getContent() : "");
-                
-                // Update recipient if changed
-                if (emailDTO.getRecipients() != null && !emailDTO.getRecipients().isEmpty()) {
-                    String primaryRecipient = emailDTO.getRecipients().split(",")[0].trim();
-                    Optional<User> recipientOpt = userRepository.findByEmail(primaryRecipient);
-                    
-                    if (recipientOpt.isPresent()) {
-                        existingDraft.setRecipient(recipientOpt.get());
-                    }
-                }
-                
-                draft = existingDraft;
-            } else {
-                draft = draftBuilder.build();
+                draft.setRecipient(sender);
             }
             
             // Double-check createdAt is set before saving
@@ -246,31 +242,92 @@ public class EmailService {
         return emailOpt;
     }
 
-    public Page<Email> getSentEmails(UUID userId, int page) {
+    @Transactional(readOnly = true)
+    public Optional<Email> getEmailWithAttachments(UUID id) {
+        log.debug("Getting email with attachments for id: {}", id);
+        Optional<Email> emailOpt = emailRepository.findById(id);
+        
+        if (emailOpt.isPresent()) {
+            Email email = emailOpt.get();
+            // Load the attachments eagerly to avoid LazyInitializationException
+            email.getAttachments().size();
+            
+            // Load sender and recipient to avoid LazyInitializationException
+            if (email.getSender() != null) {
+                email.getSender().getEmail(); // Touch to initialize
+            }
+            
+            if (email.getRecipient() != null) {
+                email.getRecipient().getEmail(); // Touch to initialize
+            }
+        }
+        
+        return emailOpt;
+    }
+
+    /**
+     * Get sent emails with eager loading of senders and recipients
+     */
+    @Transactional(readOnly = true)
+    public Page<Email> getSentEmails(UUID userId, int page, int size) {
         log.debug("Fetching sent emails for user: {}", userId);
         Page<Email> emails = emailRepository.findBySenderIdAndSentTrueAndTrashFalseOrderByCreatedAtDesc(
-            userId,
-            PageRequest.of(page, PAGE_SIZE)
+            userId, 
+            PageRequest.of(page, size)
         );
-        log.debug("Found {} sent emails for user {}", emails.getContent().size(), userId);
+        
+        // Initialize recipient for each email to avoid LazyInitializationExceptions
+        for (Email email : emails.getContent()) {
+            if (email.getRecipient() != null) {
+                Hibernate.initialize(email.getRecipient());
+            }
+        }
+        
         return emails;
     }
 
-    public Page<Email> getDraftEmails(UUID userId, int page) {
+    /**
+     * Get draft emails with eager loading of recipients
+     */
+    @Transactional(readOnly = true)
+    public Page<Email> getDraftEmails(UUID userId, int page, int size) {
         log.debug("Fetching draft emails for user: {}", userId);
-        return emailRepository.findBySenderIdAndDraftTrueAndTrashFalseOrderByCreatedAtDesc(
-            userId,
-            PageRequest.of(page, PAGE_SIZE)
+        Page<Email> emails = emailRepository.findBySenderIdAndDraftTrueAndTrashFalseOrderByCreatedAtDesc(
+            userId, 
+            PageRequest.of(page, size)
         );
+        
+        // Initialize recipient for each email to avoid LazyInitializationExceptions
+        for (Email email : emails.getContent()) {
+            if (email.getRecipient() != null) {
+                Hibernate.initialize(email.getRecipient());
+            }
+        }
+        
+        return emails;
     }
 
-    public Page<Email> getTrashEmails(UUID userId, int page) {
+    /**
+     * Get trash emails with eager loading of senders and recipients
+     */
+    @Transactional(readOnly = true)
+    public Page<Email> getTrashEmails(UUID userId, int page, int size) {
         log.debug("Fetching trash emails for user: {}", userId);
-        return emailRepository.findByTrashTrueAndSenderIdOrTrashTrueAndRecipientIdOrderByCreatedAtDesc(
-            userId,
-            userId,
-            PageRequest.of(page, PAGE_SIZE)
+        Page<Email> emails = emailRepository.findByTrashTrueAndSenderIdOrTrashTrueAndRecipientIdOrderByCreatedAtDesc(
+            userId, userId, PageRequest.of(page, size)
         );
+        
+        // Initialize sender and recipient for each email to avoid LazyInitializationExceptions
+        for (Email email : emails.getContent()) {
+            if (email.getSender() != null) {
+                Hibernate.initialize(email.getSender());
+            }
+            if (email.getRecipient() != null) {
+                Hibernate.initialize(email.getRecipient());
+            }
+        }
+        
+        return emails;
     }
 
     @Transactional
@@ -388,5 +445,48 @@ public class EmailService {
         
         log.info("Deleted {} emails from trash for user: {}", count, userId);
         return count;
+    }
+
+    /**
+     * Get inbox emails with sender eagerly loaded, limited by count
+     */
+    @Transactional(readOnly = true)
+    public List<Email> getInboxEmailsWithSender(UUID userId, int limit) {
+        log.debug("Fetching {} recent inbox emails with sender for user: {}", limit, userId);
+        List<Email> emails = emailRepository.findInboxEmailsWithSender(userId);
+        
+        // Limit the number of emails returned
+        if (emails.size() > limit) {
+            emails = emails.subList(0, limit);
+        }
+        
+        // Eagerly initialize the sender for each email to avoid LazyInitializationExceptions
+        for (Email email : emails) {
+            if (email.getSender() != null) {
+                Hibernate.initialize(email.getSender());
+            }
+        }
+        
+        return emails;
+    }
+
+    /**
+     * Check if emails have attachments and return a map of email IDs to attachment status
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, Boolean> checkEmailsHaveAttachments(List<Email> emails) {
+        Map<UUID, Boolean> hasAttachments = new HashMap<>();
+        
+        if (emails == null || emails.isEmpty()) {
+            return hasAttachments;
+        }
+        
+        // Extract IDs from emails
+        List<UUID> emailIds = emails.stream()
+            .map(Email::getId)
+            .collect(Collectors.toList());
+            
+        // Use attachmentService to check which emails have attachments
+        return attachmentService.checkEmailsHaveAttachments(emailIds);
     }
 } 

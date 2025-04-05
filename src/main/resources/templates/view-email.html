@@ -3,7 +3,7 @@
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layout/main}">
 <head>
-    <title th:text="${email.subject}">Email Subject</title>
+    <title th:text="${emailDTO.subject != null ? emailDTO.subject : 'View Email'}">Email Subject</title>
     <link rel="stylesheet" th:href="@{/css/email-view.css}">
 </head>
 <body>
@@ -53,18 +53,26 @@
 
         <div class="email-container">
             <div class="email-header">
-                <h2 class="email-subject" th:text="${email.subject}">Email Subject</h2>
+                <h2 class="email-subject" th:text="${emailDTO.subject != null ? emailDTO.subject : '(No subject)'}">Email Subject</h2>
                 
                 <div class="email-meta d-flex justify-content-between">
                     <div class="sender-info">
-                        <div class="avatar" th:text="${#strings.substring(email.sender.firstName, 0, 1) + #strings.substring(email.sender.lastName, 0, 1)}">JS</div>
+                        <div class="avatar" th:if="${sender != null && sender.firstName != null && sender.lastName != null}" 
+                             th:text="${#strings.substring(sender.firstName, 0, 1) + #strings.substring(sender.lastName, 0, 1)}">JS</div>
+                        <div class="avatar" th:unless="${sender != null && sender.firstName != null && sender.lastName != null}">UK</div>
                         <div>
-                            <div class="sender-name" th:text="${email.sender.firstName + ' ' + email.sender.lastName}">John Smith</div>
-                            <div class="sender-email text-muted" th:text="${email.sender.email}">john.smith@example.com</div>
+                            <div class="sender-name" th:if="${sender != null && sender.firstName != null && sender.lastName != null}" 
+                                 th:text="${sender.firstName + ' ' + sender.lastName}">John Smith</div>
+                            <div class="sender-name" th:unless="${sender != null && sender.firstName != null && sender.lastName != null}">Unknown Sender</div>
+                            <div class="sender-email text-muted" th:if="${sender != null && sender.email != null}" 
+                                 th:text="${sender.email}">john.smith@example.com</div>
+                            <div class="sender-email text-muted" th:unless="${sender != null && sender.email != null}">(No email)</div>
                         </div>
                     </div>
                     <div class="email-date">
-                        <span class="text-muted" th:text="${#temporals.format(email.createdAt, 'MMMM d, yyyy h:mm a')}">March 15, 2023 10:30 AM</span>
+                        <span class="text-muted" th:if="${email.createdAt != null}" 
+                              th:text="${#temporals.format(email.createdAt, 'MMMM d, yyyy h:mm a')}">March 15, 2023 10:30 AM</span>
+                        <span class="text-muted" th:unless="${email.createdAt != null}">Unknown date</span>
                         <span th:if="${email.starred}" class="starred ms-2">
                             <i class="bi bi-star-fill text-warning"></i>
                         </span>
@@ -73,26 +81,34 @@
                 
                 <div class="recipients">
                     <span class="text-muted">To: </span>
-                    <span th:text="${email.recipient.email}">recipient@example.com</span>
+                    <span th:if="${emailDTO.recipients != null}" th:text="${emailDTO.recipients}">recipient@example.com</span>
+                    <span th:unless="${emailDTO.recipients != null}">
+                        <span th:if="${recipient != null && recipient.email != null}" th:text="${recipient.email}">recipient@example.com</span>
+                        <span th:unless="${recipient != null && recipient.email != null}">(No recipient)</span>
+                    </span>
                 </div>
             </div>
             
             <div class="email-body">
-                <div class="email-content" th:utext="${#strings.replace(#strings.escapeXml(email.content), '&#10;', '<br>')}">
+                <div class="email-content" th:if="${emailDTO.content != null}" 
+                     th:utext="${#strings.replace(#strings.escapeXml(emailDTO.content), '&#10;', '<br>')}">
                     Email content goes here.
                 </div>
+                <div class="email-content text-muted fst-italic" th:unless="${emailDTO.content != null}">
+                    (No content)
+                </div>
                 
-                <div th:if="${not #lists.isEmpty(email.attachments)}" class="email-attachments">
+                <div th:if="${hasAttachments}" class="email-attachments">
                     <h5>Attachments</h5>
                     <div class="attachment-list">
-                        <div th:each="attachment : ${email.attachments}" class="attachment-item">
-                            <a th:href="@{/attachment/{id}(id=${attachment.id})}" class="attachment-link">
+                        <div th:each="attachment : ${attachments}" class="attachment-item">
+                            <a th:href="@{/attachment/{id}(id=${attachment.id})}" class="attachment-link" download>
                                 <div class="attachment-icon">
                                     <i class="bi bi-file-earmark"></i>
                                 </div>
                                 <div class="attachment-details">
-                                    <div class="attachment-name" th:text="${attachment.filename}">document.pdf</div>
-                                    <div class="attachment-size text-muted" th:text="${attachment.size}">123 KB</div>
+                                    <div class="attachment-name" th:text="${attachment.filename != null ? attachment.filename : 'unknown-file'}">document.pdf</div>
+                                    <div class="attachment-size text-muted" th:text="${attachment.size != null ? attachment.size : 'unknown size'}">123 KB</div>
                                 </div>
                             </a>
                         </div>

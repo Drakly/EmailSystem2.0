@@ -17,7 +17,7 @@
                     <small class="text-muted">This email will be sent to users within the system only</small>
                 </div>
                 
-                <form th:action="@{/emails/send}" th:object="${emailDTO}" method="post" enctype="multipart/form-data">
+                <form th:action="@{/compose/send}" th:object="${emailDTO}" method="post" enctype="multipart/form-data">
                     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
                     <input type="hidden" id="draftId" th:field="*{id}" />
                     
@@ -45,6 +45,24 @@
                         </div>
                         <input type="file" class="form-control d-none" name="attachments" id="fileInput" multiple>
                         <div id="fileList" class="mt-2"></div>
+                    </div>
+                    
+                    <!-- Display existing attachments if forwarding or editing draft -->
+                    <div th:if="${emailDTO.savedAttachments != null && !emailDTO.savedAttachments.empty}" class="mb-3 saved-attachments">
+                        <h5>Existing Attachments</h5>
+                        <div class="attachment-list">
+                            <div th:each="attachment : ${emailDTO.savedAttachments}" class="attachment-item">
+                                <input type="hidden" th:name="attachmentIds" th:value="${attachment.id}">
+                                <div class="attachment-icon">
+                                    <i class="bi bi-paperclip"></i>
+                                </div>
+                                <div class="attachment-name" th:text="${attachment.filename}">attachment.pdf</div>
+                                <div class="attachment-size" th:text="${attachment.size}">123 KB</div>
+                                <a th:href="${attachment.downloadUrl}" class="btn btn-sm btn-outline-secondary" download>
+                                    <i class="bi bi-download"></i>
+                                </a>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="action-buttons">
@@ -194,190 +212,150 @@
                 function updateFileList() {
                     fileList.empty();
                     
-                    // Add existing attachments if any
-                    if (window.savedAttachments && window.savedAttachments.length) {
-                        window.savedAttachments.forEach(attachment => {
-                            fileList.append(`
-                                <div class="attachment-item" data-id="${attachment.id}">
-                                    <i class="bi bi-paperclip me-2"></i>
-                                    <span>${attachment.filename}</span>
-                                    <small class="ms-2 text-muted">${attachment.size} bytes</small>
-                                    <button type="button" class="btn btn-sm btn-link text-danger remove-attachment" 
-                                            data-id="${attachment.id}">
+                    // Add files from input
+                    const files = fileInput[0].files;
+                    if (files.length > 0) {
+                        for (let i = 0; i < files.length; i++) {
+                            const file = files[i];
+                            const fileSize = formatFileSize(file.size);
+                            
+                            const fileItem = `
+                                <div class="file-item">
+                                    <div class="file-icon">
+                                        <i class="bi bi-file-earmark"></i>
+                                    </div>
+                                    <div class="file-details">
+                                        <div class="file-name">${file.name}</div>
+                                        <div class="file-size">${fileSize}</div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-danger remove-file" data-index="${i}">
                                         <i class="bi bi-x"></i>
                                     </button>
                                 </div>
-                            `);
+                            `;
+                            
+                            fileList.append(fileItem);
+                        }
+                        
+                        // Add remove event listeners
+                        $('.remove-file').on('click', function() {
+                            const index = parseInt($(this).data('index'));
+                            removeFile(index);
                         });
                     }
+                }
+                
+                function removeFile(index) {
+                    // Create a new FileList without the removed file
+                    const dt = new DataTransfer();
+                    const files = fileInput[0].files;
                     
-                    // Add newly selected files
-                    if (fileInput[0].files.length) {
-                        const fileItemsHtml = Array.from(fileInput[0].files).map(file => {
-                            const size = formatFileSize(file.size);
-                            return `
-                                <div class="attachment-item">
-                                    <i class="bi bi-paperclip me-2"></i>
-                                    <span>${file.name}</span>
-                                    <small class="ms-2 text-muted">${size}</small>
-                                </div>
-                            `;
-                        }).join('');
-                        
-                        fileList.append(fileItemsHtml);
+                    for (let i = 0; i < files.length; i++) {
+                        if (i !== index) {
+                            dt.items.add(files[i]);
+                        }
                     }
                     
-                    // Bind event handler for removing attachments
-                    $('.remove-attachment').on('click', function() {
-                        const attachmentId = $(this).data('id');
-                        // Remove from DOM
-                        $(this).closest('.attachment-item').remove();
-                        // Remove from saved attachments array
-                        if (window.savedAttachments) {
-                            window.savedAttachments = window.savedAttachments.filter(a => a.id !== attachmentId);
-                        }
-                    });
+                    fileInput[0].files = dt.files;
+                    updateFileList();
                 }
                 
                 function formatFileSize(bytes) {
-                    if (bytes < 1024) return bytes + ' B';
-                    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-                    return (bytes / 1048576).toFixed(1) + ' MB';
+                    if (bytes === 0) return '0 Bytes';
+                    
+                    const k = 1024;
+                    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    
+                    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
                 }
             }
-
-            function saveDraft() {
-                const form = document.querySelector('form');
-                form.action = '[[@{/emails/save-draft-form}]]';
-                form.submit();
-            }
-
+            
+            // Autosave drafts
             function setupAutoSave() {
-                // Variables for tracking changes
-                let lastSavedContent = $('#content').summernote('code');
-                let lastSavedSubject = $('#subject').val();
-                let lastSavedRecipients = $('#recipients').val();
-                let saveTimeout;
-                let saving = false;
+                let autoSaveTimer;
+                const autoSaveInterval = 60000; // 1 minute
                 
-                function checkForChanges() {
-                    const currentContent = $('#content').summernote('code');
-                    const currentSubject = $('#subject').val();
-                    const currentRecipients = $('#recipients').val();
-                    
-                    // Check if any of the fields have changed
-                    if (currentContent !== lastSavedContent || 
-                        currentSubject !== lastSavedSubject || 
-                        currentRecipients !== lastSavedRecipients) {
-                        
-                        // Clear previous timeout if exists
-                        if (saveTimeout) {
-                            clearTimeout(saveTimeout);
-                        }
-                        
-                        // Set a new timeout for saving
-                        saveTimeout = setTimeout(function() {
-                            // Only proceed if not already saving
-                            if (!saving) {
-                                saving = true;
-                                saveAsDraft();
-                            }
-                        }, 3000); // 3 seconds delay
+                // Function to perform autosave
+                function autoSaveDraft() {
+                    // Only autosave if there's content to save
+                    if ($('#subject').val() || $('#content').summernote('code').trim() !== '<p><br></p>') {
+                        saveDraft(true);
                     }
                 }
                 
-                // Save as draft via AJAX
-                function saveAsDraft() {
-                    // Update last saved values
-                    lastSavedContent = $('#content').summernote('code');
-                    lastSavedSubject = $('#subject').val();
-                    lastSavedRecipients = $('#recipients').val();
-                    
-                    // Get draft ID if exists
-                    const draftId = $('#draftId').val();
-                    
-                    // Prepare form data
-                    const formData = new FormData();
-                    formData.append('subject', lastSavedSubject);
-                    formData.append('recipients', lastSavedRecipients);
-                    formData.append('content', lastSavedContent);
-                    formData.append('_csrf', $('input[name="_csrf"][value]').val() || $('input[name="_csrf.token"]').val());
-                    
-                    // Add draft ID if exists
-                    if (draftId) {
-                        formData.append('id', draftId);
-                    }
-                    
-                    // Add existing attachment IDs
-                    const attachments = [];
-                    $('.attachment-item').each(function() {
-                        if ($(this).data('id')) {
-                            attachments.push($(this).data('id'));
-                        }
-                    });
-                    
-                    if (attachments.length > 0) {
-                        formData.append('attachmentIds', attachments.join(','));
-                    }
-                    
-                    // Add new file attachments if any
-                    const fileInput = document.getElementById('fileInput');
-                    if (fileInput && fileInput.files && fileInput.files.length > 0) {
-                        for (let i = 0; i < fileInput.files.length; i++) {
-                            formData.append('attachments', fileInput.files[i]);
-                        }
-                    }
-                    
-                    // Send AJAX request
-                    $.ajax({
-                        url: '[[@{/emails/save-draft}]]',
-                        type: 'POST',
-                        data: formData,
-                        processData: false,
-                        contentType: false,
-                        success: function(response) {
-                            saving = false;
+                // Start autosave timer
+                function startAutoSaveTimer() {
+                    clearTimeout(autoSaveTimer);
+                    autoSaveTimer = setTimeout(autoSaveDraft, autoSaveInterval);
+                }
+                
+                // Reset timer when user interacts with the form
+                $('#subject, #recipients').on('input', function() {
+                    startAutoSaveTimer();
+                });
+                
+                $('#content').on('summernote.change', function() {
+                    startAutoSaveTimer();
+                });
+                
+                // Start initial timer
+                startAutoSaveTimer();
+            }
+            
+            // Function to handle "Save as Draft" button click
+            function saveDraft(isAutoSave = false) {
+                // If this is a manual save (not auto-save), use the form submission approach
+                if (!isAutoSave) {
+                    const form = document.querySelector('form');
+                    form.action = '/compose/save-draft';
+                    form.submit();
+                    return;
+                }
+                
+                // For auto-save, use AJAX
+                const draftId = $('#draftId').val();
+                const recipients = $('#recipients').val();
+                const subject = $('#subject').val();
+                const content = $('#content').summernote('code');
+                
+                // Get CSRF token
+                const token = $("input[name='_csrf']").val();
+                
+                $.ajax({
+                    url: '/compose/save-draft',
+                    type: 'POST',
+                    data: {
+                        id: draftId,
+                        recipients: recipients,
+                        subject: subject,
+                        content: content,
+                        _csrf: token
+                    },
+                    success: function(response) {
+                        try {
+                            const result = typeof response === 'string' ? JSON.parse(response) : response;
                             
-                            // Handle JSON response
-                            try {
-                                let result;
-                                if (typeof response === 'string') {
-                                    result = JSON.parse(response);
-                                } else {
-                                    result = response;
-                                }
+                            if (result.success) {
+                                // Update draft ID in form
+                                $('#draftId').val(result.id);
                                 
-                                if (result.success && result.id) {
-                                    $('#draftId').val(result.id);
-                                }
-                                
-                                // Show success message
-                                showAutoSaveToast();
-                            } catch (e) {
-                                console.error('Error parsing response:', e);
+                                // Show success message for auto-save
+                                $('.autosave-toast').addClass('show');
+                                setTimeout(function() {
+                                    $('.autosave-toast').removeClass('show');
+                                }, 3000);
+                            } else {
+                                console.error('Error saving draft:', result.message);
                             }
-                        },
-                        error: function(xhr) {
-                            saving = false;
-                            console.error('Error saving draft:', xhr.responseText);
+                        } catch (e) {
+                            console.error('Error parsing response:', e);
                         }
-                    });
-                }
-                
-                // Show autosave toast notification
-                function showAutoSaveToast() {
-                    const toast = $('.autosave-toast');
-                    toast.addClass('show');
-                    
-                    setTimeout(function() {
-                        toast.removeClass('show');
-                    }, 3000);
-                }
-                
-                // Setup change listeners
-                $('#content').on('summernote.change', checkForChanges);
-                $('#subject').on('input', checkForChanges);
-                $('#recipients').on('input', checkForChanges);
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error saving draft:', error);
+                    }
+                });
             }
         </script>
     </th:block>

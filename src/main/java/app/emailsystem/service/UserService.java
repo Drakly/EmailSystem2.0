@@ -8,27 +8,37 @@ import app.emailsystem.repository.UserRepository;
 import app.emailsystem.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class UserService implements UserDetailsService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Autowired
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
     @Transactional
     public User createUser(UserDTO userDTO) {
         log.info("Creating new user with email: {}", userDTO.getEmail());
-        if (userRepository.existsByEmail(userDTO.getEmail())) {
+        // First check if the email exists to avoid transaction issues
+        boolean exists = userRepository.existsByEmail(userDTO.getEmail());
+        if (exists) {
             throw new EmailSystemException("Email already exists");
         }
 
@@ -37,12 +47,13 @@ public class UserService implements UserDetailsService {
         user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
         user.setFirstName(userDTO.getFirstName());
         user.setLastName(userDTO.getLastName());
+        user.setActive(true);
 
         return userRepository.save(user);
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         log.debug("Loading user details for email: {}", email);
         User user = userRepository.findByEmail(email)
@@ -62,6 +73,13 @@ public class UserService implements UserDetailsService {
         return userRepository.findByEmail(email);
     }
 
+    @Transactional(readOnly = true)
+    public List<User> getAllUsers() {
+        log.debug("Getting all users");
+        return userRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
     public boolean existsById(UUID id) {
         return userRepository.existsById(id);
     }
@@ -70,7 +88,7 @@ public class UserService implements UserDetailsService {
     public User updateUser(UUID id, UserDTO userDTO) {
         log.info("Updating user with id: {}", id);
         User user = getUserById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+            .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
         
         if (!user.getEmail().equals(userDTO.getEmail()) && 
             userRepository.existsByEmail(userDTO.getEmail())) {
@@ -91,7 +109,7 @@ public class UserService implements UserDetailsService {
     public void deleteUser(UUID id) {
         log.info("Deleting user with id: {}", id);
         if (!existsById(id)) {
-            throw new ResourceNotFoundException("User not found with id: " + id);
+            throw new ResourceNotFoundException("User", "id", id);
         }
         userRepository.deleteById(id);
     }

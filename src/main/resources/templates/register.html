@@ -13,6 +13,10 @@
                     <div class="card-body">
                         <h3 class="card-title text-center mb-4">Register</h3>
                         
+                        <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}">
+                            Error message
+                        </div>
+                        
                         <form th:action="@{/register}" th:object="${userDTO}" method="post">
                             <div class="mb-3">
                                 <label for="email" class="form-label">Email</label>
@@ -33,6 +37,11 @@
                                 <label for="password" class="form-label">Password</label>
                                 <input type="password" class="form-control" id="password" th:field="*{password}" required>
                                 <div class="text-danger" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="confirmPassword" class="form-label">Confirm Password</label>
+                                <input type="password" class="form-control" id="confirmPassword" th:field="*{confirmPassword}" required>
+                                <div class="text-danger" th:if="${#fields.hasErrors('confirmPassword')}" th:errors="*{confirmPassword}"></div>
                             </div>
                             <button type="submit" class="btn btn-primary w-100">Register</button>
                         </form>
