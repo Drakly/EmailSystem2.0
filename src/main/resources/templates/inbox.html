@@ -8,127 +8,286 @@
 </head>
 <body>
     <div layout:fragment="content">
-        <div class="d-flex justify-content-between align-items-center mb-4 page-header">
-            <h2><i class="bi bi-inbox me-2"></i>Inbox</h2>
-            <div class="btn-group">
-                <button type="button" class="btn btn-outline-secondary" id="refreshButton">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh
-                </button>
-                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
-                    <i class="bi bi-three-dots"></i> More
-                </button>
-                <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="#" id="markAllAsRead"><i class="bi bi-check-all"></i> Mark all as read</a></li>
-                    <li><a class="dropdown-item" href="#" id="markSelectedAsRead"><i class="bi bi-check"></i> Mark selected as read</a></li>
-                    <li><a class="dropdown-item" href="#" id="markSelectedAsUnread"><i class="bi bi-envelope"></i> Mark selected as unread</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="#" id="moveSelectedToTrash"><i class="bi bi-trash"></i> Move to trash</a></li>
-                </ul>
+        <div class="inbox-container">
+            <!-- Header with search and actions -->
+            <div class="inbox-header">
+                <div class="menu-search">
+                    <button class="menu-button">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <div class="search-container">
+                        <i class="bi bi-search search-icon"></i>
+                        <input type="text" placeholder="Search your inbox" class="search-input">
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="icon-button" title="Help">
+                        <i class="bi bi-question-circle"></i>
+                    </button>
+                    <button class="icon-button" title="Settings">
+                        <i class="bi bi-gear"></i>
+                    </button>
+                    <button class="icon-button" title="Apps">
+                        <i class="bi bi-grid-3x3-gap"></i>
+                    </button>
+                    <div class="user-avatar">
+                        <span>HD</span>
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <div th:if="${message}" class="alert alert-success alert-dismissible fade show" role="alert">
-            <span th:text="${message}"></span>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-        
-        <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
-            <span th:text="${error}"></span>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-
-        <div class="card">
-            <div class="card-body p-0">
-                <div th:replace="~{fragments/email-list :: email-list('inbox')}"></div>
+            <!-- Compose button -->
+            <div class="compose-container">
+                <a th:href="@{/compose}" class="compose-email-btn">
+                    <i class="bi bi-pencil-square"></i>
+                    <span>Send an email</span>
+                </a>
             </div>
+
+            <!-- Folder navigation -->
+            <div class="email-folders">
+                <a href="#" class="folder-item active">
+                    <i class="bi bi-inbox"></i>
+                    <span>Inbox</span>
+                    <span class="count">4</span>
+                </a>
+                <a href="#" class="folder-item">
+                    <i class="bi bi-star"></i>
+                    <span>Favorites</span>
+                </a>
+                <a href="#" class="folder-item">
+                    <i class="bi bi-send"></i>
+                    <span>Outgoing</span>
+                </a>
+                <a href="#" class="folder-item">
+                    <i class="bi bi-file-earmark"></i>
+                    <span>Saved Drafts</span>
+                </a>
+                <div class="folder-add">
+                    <i class="bi bi-plus"></i>
+                    <span>Add new folder</span>
+                </div>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="tabs-container">
+                <div class="tab-item active">
+                    <i class="bi bi-lightning-charge"></i>
+                    <span>Important</span>
+                    <span class="tab-counter">14</span>
+                </div>
+                <div class="tab-item">
+                    <i class="bi bi-reply"></i>
+                    <span>Replies</span>
+                </div>
+                <div class="tab-item">
+                    <i class="bi bi-box"></i>
+                    <span>Products</span>
+                </div>
+            </div>
+
+            <!-- Alerts -->
+            <div th:if="${message}" class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="bi bi-check-circle me-2"></i>
+                <span th:text="${message}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            
+            <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <span th:text="${error}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+
+            <!-- Email List -->
+            <div class="email-list-container">
+                <div class="email-list-controls">
+                    <div class="select-all-container">
+                        <input type="checkbox" class="form-check-input" id="selectAll">
+                        <label class="form-check-label" for="selectAll">Select All</label>
+                    </div>
+                </div>
+                
+                <div th:if="${emails != null and !emails.empty}" class="email-list">
+                    <!-- Loop through each email -->
+                    <div th:each="email : ${emails}" class="email-row">
+                        <!-- The whole row except checkboxes and action buttons are wrapped in an anchor -->
+                        <div th:class="${'email-item' + (email.read ? '' : ' unread')}">
+                            <div class="email-checkbox" onclick="event.stopPropagation();">
+                                <input type="checkbox" class="form-check-input" th:value="${email.id}">
+                            </div>
+                            
+                            <div class="email-star" onclick="event.stopPropagation();">
+                                <i class="bi" th:classappend="${email.starred ? 'bi-star-fill' : 'bi-star'}"></i>
+                            </div>
+                            
+                            <div class="email-sender-avatar" 
+                                 th:text="${email.sender != null && email.sender.firstName != null && email.sender.lastName != null ? 
+                                           (#strings.length(email.sender.firstName) > 0 ? #strings.substring(email.sender.firstName,0,1) : '') + 
+                                           (#strings.length(email.sender.lastName) > 0 ? #strings.substring(email.sender.lastName,0,1) : '')
+                                           : 'UK'}">
+                            </div>
+                            
+                            <!-- This is the clickable part -->
+                            <a th:href="@{/email/{id}(id=${email.id})}" class="email-content-link">
+                                <div class="email-content">
+                                    <div class="email-header">
+                                        <h3 class="email-sender" 
+                                            th:text="${email.sender != null ? 
+                                                      (email.sender.firstName != null && email.sender.lastName != null ? 
+                                                       email.sender.firstName + ' ' + email.sender.lastName : 
+                                                       email.sender.email) : 'Unknown Sender'}">
+                                        </h3>
+                                        <span class="email-time" 
+                                              th:text="${#temporals.format(email.createdAt, 'MMM d, yyyy')}">
+                                        </span>
+                                    </div>
+                                    <p class="email-subject" th:text="${email.subject ?: 'No Subject'}"></p>
+                                    <p class="email-preview" th:text="${email.content != null ? 
+                                                                      (#strings.length(email.content) > 100 ? 
+                                                                       #strings.substring(email.content,0,100) + '...' : 
+                                                                       email.content) : ''}">
+                                    </p>
+                                </div>
+                            </a>
+                            
+                            <!-- Status indicators would go here based on your app's logic -->
+                            
+                            <div class="email-actions" onclick="event.stopPropagation();">
+                                <button type="button" class="email-action-btn" th:title="${email.read ? 'Mark as unread' : 'Mark as read'}">
+                                    <i class="bi" th:classappend="${email.read ? 'bi-envelope' : 'bi-envelope-open'}"></i>
+                                </button>
+                                <button type="button" class="email-action-btn" title="Move to trash">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                <span th:if="${hasAttachments != null and hasAttachments[email.id]}" class="email-attachment-indicator" title="Has attachments">
+                                    <i class="bi bi-paperclip"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Empty State -->
+                <div th:if="${emails == null or emails.empty}" class="empty-state">
+                    <i class="bi bi-inbox empty-state-icon"></i>
+                    <p class="empty-state-text">Your inbox is empty</p>
+                    <a th:href="@{/compose}" class="btn btn-primary">
+                        <i class="bi bi-pencil-square"></i>
+                        Compose New Email
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Hidden Form for Bulk Actions -->
+            <form id="bulkActionForm" method="post" style="display: none;">
+                <input type="hidden" name="emailIds" id="selectedEmailIds">
+                <input type="hidden" name="_csrf" th:value="${_csrf.token}">
+            </form>
         </div>
-        
-        <!-- Bulk action form (hidden) -->
-        <form id="bulkActionForm" method="post" style="display: none;">
-            <input type="hidden" name="emailIds" id="selectedEmailIds">
-            <input type="hidden" name="_csrf" th:value="${_csrf.token}">
-        </form>
     </div>
     
     <th:block layout:fragment="scripts">
-        <script>
+        <script th:inline="javascript">
             $(document).ready(function() {
-                // Handle refresh button
+                // URLs from Thymeleaf
+                const emailBaseUrl = /*[[@{/email/}]]*/ '';
+                const emailsTrashUrl = /*[[@{/emails/trash}]]*/ '';
+                
+                // Refresh button
                 $('#refreshButton').click(function() {
                     window.location.reload();
                 });
                 
-                // Handle bulk actions
-                $('#markAllAsRead').click(function(e) {
-                    e.preventDefault();
-                    // Implementation to be added
-                    alert('Mark all as read feature will be implemented soon');
-                });
-                
-                $('#markSelectedAsRead').click(function(e) {
-                    e.preventDefault();
-                    const selectedIds = getSelectedIds();
-                    if (selectedIds.length === 0) {
-                        alert('Please select at least one email');
-                        return;
-                    }
-                    // Implementation to be added
-                    alert('Mark selected as read feature will be implemented soon');
-                });
-                
-                $('#markSelectedAsUnread').click(function(e) {
-                    e.preventDefault();
-                    const selectedIds = getSelectedIds();
-                    if (selectedIds.length === 0) {
-                        alert('Please select at least one email');
-                        return;
-                    }
-                    // Implementation to be added
-                    alert('Mark selected as unread feature will be implemented soon');
-                });
-                
-                $('#moveSelectedToTrash').click(function(e) {
-                    e.preventDefault();
-                    const selectedIds = getSelectedIds();
-                    if (selectedIds.length === 0) {
-                        alert('Please select at least one email');
-                        return;
-                    }
-                    
-                    $('#selectedEmailIds').val(selectedIds.join(','));
-                    $('#bulkActionForm').attr('action', '/emails/trash').submit();
-                });
-                
-                // Helper function to get selected email IDs
-                function getSelectedIds() {
-                    const selectedIds = [];
-                    $('.form-check-input:checked').each(function() {
-                        selectedIds.push($(this).val());
-                    });
-                    return selectedIds;
-                }
-                
-                // Handle select all checkbox
+                // Select all checkbox
                 $('#selectAll').change(function() {
                     $('.form-check-input').prop('checked', $(this).prop('checked'));
                 });
                 
-                // Make entire email item clickable (except for controls)
-                $('.email-item').click(function(e) {
-                    // Don't trigger if clicking on a checkbox or button
-                    if (!$(e.target).is('.form-check-input, button, .dropdown-toggle, .dropdown-menu, .dropdown-item')) {
-                        const href = $(this).find('a').attr('href');
-                        if (href) {
-                            window.location.href = href;
-                        }
+                // Star toggle functionality
+                $('.email-star').click(function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    $(this).toggleClass('active');
+                    const icon = $(this).find('i');
+                    if ($(this).hasClass('active')) {
+                        icon.removeClass('bi-star').addClass('bi-star-fill');
+                    } else {
+                        icon.removeClass('bi-star-fill').addClass('bi-star');
+                    }
+                    // TODO: Add AJAX call to update star status
+                });
+                
+                // Bulk actions
+                function getSelectedIds() {
+                    return $('.email-item .form-check-input:checked').map(function() {
+                        return $(this).val();
+                    }).get();
+                }
+                
+                $('#markAllAsRead, #markSelectedAsRead, #markSelectedAsUnread').click(function(e) {
+                    e.preventDefault();
+                    const ids = $(this).attr('id') === 'markAllAsRead' ? 'all' : getSelectedIds();
+                    if (ids.length === 0 && ids !== 'all') {
+                        alert('Please select at least one email');
+                        return;
+                    }
+                    // Implementation to be added
+                    alert('This feature will be implemented soon');
+                });
+                
+                $('#moveSelectedToTrash').click(function(e) {
+                    e.preventDefault();
+                    const ids = getSelectedIds();
+                    if (ids.length === 0) {
+                        alert('Please select at least one email');
+                        return;
+                    }
+                    if (confirm('Are you sure you want to move the selected emails to trash?')) {
+                        $('#selectedEmailIds').val(ids.join(','));
+                        $('#bulkActionForm').attr('action', emailsTrashUrl).submit();
                     }
                 });
                 
-                // Handle keyboard shortcuts
+                // Individual email actions
+                $('.email-action-btn').click(function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const action = $(this).attr('title').toLowerCase();
+                    const emailId = $(this).closest('.email-item').find('.form-check-input').val();
+                    
+                    if (action.includes('trash')) {
+                        if (confirm('Are you sure you want to move this email to trash?')) {
+                            $('#selectedEmailIds').val(emailId);
+                            $('#bulkActionForm').attr('action', emailsTrashUrl).submit();
+                        }
+                    } else if (action.includes('unread') || action.includes('read')) {
+                        // Implementation to be added
+                        alert('Mark as read/unread feature will be implemented soon');
+                    }
+                });
+                
+                // Tab switching functionality
+                $('.tab-item').click(function() {
+                    $('.tab-item').removeClass('active');
+                    $(this).addClass('active');
+                    // Implementation for tab filtering to be added
+                });
+                
+                // Folder navigation functionality
+                $('.folder-item').click(function(e) {
+                    e.preventDefault();
+                    $('.folder-item').removeClass('active');
+                    $(this).addClass('active');
+                    // Implementation for folder navigation to be added
+                });
+                
+                // Keyboard shortcuts
                 $(document).keydown(function(e) {
-                    // r - Refresh
-                    if (e.keyCode === 82 && !$(e.target).is('input, textarea')) {
-                        window.location.reload();
+                    if (!$(e.target).is('input, textarea')) {
+                        if (e.key === 'r') {
+                            window.location.reload();
+                        }
                     }
                 });
             });
