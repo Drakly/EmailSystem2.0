@@ -8,96 +8,110 @@
 </head>
 <body>
     <div layout:fragment="content">
-        <div class="email-actions d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <a th:href="@{${returnTo != null ? returnTo : '/inbox'}}" class="btn btn-outline-secondary">
-                    <i class="bi bi-arrow-left"></i> Back
+        <div class="email-container">
+            <!-- Back Button -->
+            <div class="back-button">
+                <a th:href="@{${returnTo != null ? returnTo : '/inbox'}}" class="btn">
+                    <i class="bi bi-arrow-left"></i> Back to inbox
                 </a>
             </div>
-            <div class="btn-group">
-                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
-                    <i class="bi bi-three-dots"></i> Actions
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li>
-                        <a class="dropdown-item" th:href="@{/compose(reply=${email.id})}">
-                            <i class="bi bi-reply"></i> Reply
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item" th:href="@{/compose(forward=${email.id})}">
-                            <i class="bi bi-forward"></i> Forward
-                        </a>
-                    </li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li>
-                        <form th:action="@{/email/{id}/star(id=${email.id})}" method="post" class="dropdown-item">
-                            <input type="hidden" name="_csrf" th:value="${_csrf.token}">
-                            <button type="submit" class="btn btn-link p-0">
-                                <i class="bi" th:classappend="${email.starred ? 'bi-star-fill text-warning' : 'bi-star'}"></i>
-                                <span th:text="${email.starred ? 'Unstar' : 'Star'}">Star</span>
-                            </button>
-                        </form>
-                    </li>
-                    <li>
-                        <form th:action="@{/email/{id}/trash(id=${email.id})}" method="post" class="dropdown-item">
-                            <input type="hidden" name="_csrf" th:value="${_csrf.token}">
-                            <button type="submit" class="btn btn-link text-danger p-0">
-                                <i class="bi bi-trash"></i> Move to Trash
-                            </button>
-                        </form>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="email-container">
-            <div class="email-header">
-                <h2 class="email-subject" th:text="${emailDTO.subject != null ? emailDTO.subject : '(No subject)'}">Email Subject</h2>
-                
-                <div class="email-meta d-flex justify-content-between">
-                    <div class="sender-info">
-                        <div class="avatar" th:if="${sender != null && sender.firstName != null && sender.lastName != null}" 
-                             th:text="${#strings.substring(sender.firstName, 0, 1) + #strings.substring(sender.lastName, 0, 1)}">JS</div>
-                        <div class="avatar" th:unless="${sender != null && sender.firstName != null && sender.lastName != null}">UK</div>
-                        <div>
-                            <div class="sender-name" th:if="${sender != null && sender.firstName != null && sender.lastName != null}" 
-                                 th:text="${sender.firstName + ' ' + sender.lastName}">John Smith</div>
-                            <div class="sender-name" th:unless="${sender != null && sender.firstName != null && sender.lastName != null}">Unknown Sender</div>
-                            <div class="sender-email text-muted" th:if="${sender != null && sender.email != null}" 
-                                 th:text="${sender.email}">john.smith@example.com</div>
-                            <div class="sender-email text-muted" th:unless="${sender != null && sender.email != null}">(No email)</div>
-                        </div>
+            
+            <!-- Top Action Bar -->
+            <div class="email-actions">
+                <div class="left-actions">
+                    <button class="btn btn-light" type="button">
+                        <i class="bi bi-archive"></i>
+                    </button>
+                    <button class="btn btn-light" type="button">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+                <div class="right-actions">
+                    <a class="btn btn-light" th:href="@{/compose(reply=${email.id})}">
+                        <i class="bi bi-reply"></i>
+                    </a>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-light dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="bi bi-three-dots-vertical"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" th:href="@{/compose(forward=${email.id})}">
+                                    <i class="bi bi-forward"></i> Forward
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form th:action="@{/email/{id}/star(id=${email.id})}" method="post" class="dropdown-item">
+                                    <input type="hidden" name="_csrf" th:value="${_csrf.token}">
+                                    <button type="submit" class="btn btn-link p-0">
+                                        <i class="bi" th:classappend="${email.starred ? 'bi-star-fill text-warning' : 'bi-star'}"></i>
+                                        <span th:text="${email.starred ? 'Unstar' : 'Star'}">Star</span>
+                                    </button>
+                                </form>
+                            </li>
+                            <li>
+                                <form th:action="@{/email/{id}/trash(id=${email.id})}" method="post" class="dropdown-item">
+                                    <input type="hidden" name="_csrf" th:value="${_csrf.token}">
+                                    <button type="submit" class="btn btn-link text-danger p-0">
+                                        <i class="bi bi-trash"></i> Move to Trash
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
                     </div>
+                </div>
+            </div>
+
+            <!-- Email Content -->
+            <div class="email-content-wrapper">
+                <h1 class="email-subject" th:text="${emailDTO.subject != null ? emailDTO.subject : '(No subject)'}">
+                    Email Subject
+                </h1>
+
+                <div class="sender-info">
+                    <div class="avatar" th:if="${sender != null && sender.firstName != null && sender.lastName != null}" 
+                         th:text="${#strings.substring(sender.firstName, 0, 1) + #strings.substring(sender.lastName, 0, 1)}">JS</div>
+                    <div class="avatar" th:unless="${sender != null && sender.firstName != null && sender.lastName != null}">UK</div>
+                    
+                    <div class="sender-details">
+                        <div class="sender-name" th:if="${sender != null && sender.firstName != null && sender.lastName != null}" 
+                             th:text="${sender.firstName + ' ' + sender.lastName}">John Smith</div>
+                        <div class="sender-name" th:unless="${sender != null && sender.firstName != null && sender.lastName != null}">Unknown Sender</div>
+                        <div class="sender-email" th:if="${sender != null && sender.email != null}" 
+                             th:text="${sender.email}">john.smith@example.com</div>
+                        <div class="sender-email" th:unless="${sender != null && sender.email != null}">(No email)</div>
+                    </div>
+
                     <div class="email-date">
-                        <span class="text-muted" th:if="${email.createdAt != null}" 
-                              th:text="${#temporals.format(email.createdAt, 'MMMM d, yyyy h:mm a')}">March 15, 2023 10:30 AM</span>
-                        <span class="text-muted" th:unless="${email.createdAt != null}">Unknown date</span>
+                        <span th:if="${email.createdAt != null}" 
+                              th:text="${#temporals.format(email.createdAt, 'MMM d, h:mm a')}">Mar 15, 10:30 AM</span>
+                        <span th:unless="${email.createdAt != null}">Unknown date</span>
                         <span th:if="${email.starred}" class="starred ms-2">
-                            <i class="bi bi-star-fill text-warning"></i>
+                            <i class="bi bi-star-fill"></i>
                         </span>
                     </div>
                 </div>
-                
+
                 <div class="recipients">
-                    <span class="text-muted">To: </span>
+                    <span>To: </span>
                     <span th:if="${emailDTO.recipients != null}" th:text="${emailDTO.recipients}">recipient@example.com</span>
                     <span th:unless="${emailDTO.recipients != null}">
                         <span th:if="${recipient != null && recipient.email != null}" th:text="${recipient.email}">recipient@example.com</span>
                         <span th:unless="${recipient != null && recipient.email != null}">(No recipient)</span>
                     </span>
                 </div>
-            </div>
-            
-            <div class="email-body">
-                <div class="email-content" th:if="${emailDTO.content != null}" 
-                     th:utext="${#strings.replace(#strings.escapeXml(emailDTO.content), '&#10;', '<br>')}">
-                    Email content goes here.
+
+                <div class="email-body">
+                    <div class="email-content" th:if="${emailDTO.content != null}" 
+                         th:utext="${#strings.replace(#strings.escapeXml(emailDTO.content), '&#10;', '<br>')}">
+                        Email content goes here.
+                    </div>
+                    <div class="email-content empty-content" th:unless="${emailDTO.content != null}">
+                        (No content)
+                    </div>
                 </div>
-                <div class="email-content text-muted fst-italic" th:unless="${emailDTO.content != null}">
-                    (No content)
-                </div>
-                
+
                 <div th:if="${hasAttachments}" class="email-attachments">
                     <h5>Attachments</h5>
                     <div class="attachment-list">
@@ -108,7 +122,7 @@
                                 </div>
                                 <div class="attachment-details">
                                     <div class="attachment-name" th:text="${attachment.filename != null ? attachment.filename : 'unknown-file'}">document.pdf</div>
-                                    <div class="attachment-size text-muted" th:text="${attachment.size != null ? attachment.size : 'unknown size'}">123 KB</div>
+                                    <div class="attachment-size" th:text="${attachment.size != null ? attachment.size : 'unknown size'}">123 KB</div>
                                 </div>
                             </a>
                         </div>

@@ -10,6 +10,11 @@
     <div layout:fragment="content">
         <div class="inbox-container">
             <!-- Header with search and actions -->
+            <div class="compose-email-btn">
+                <a th:href="@{${returnTo != null ? returnTo : '/main'}}" class="btn">
+                    <i class="bi bi-arrow-left"></i> Back to main
+                </a>
+            </div>
             <div class="inbox-header">
                 <div class="menu-search">
                     <button class="menu-button">
@@ -49,7 +54,7 @@
                 <a href="#" class="folder-item active">
                     <i class="bi bi-inbox"></i>
                     <span>Inbox</span>
-                    <span class="count">4</span>
+                    <span class="count"></span>
                 </a>
                 <a href="#" class="folder-item">
                     <i class="bi bi-star"></i>
@@ -70,21 +75,13 @@
             </div>
 
             <!-- Tab Navigation -->
-            <div class="tabs-container">
+            <!-- <div class="tabs-container">
                 <div class="tab-item active">
                     <i class="bi bi-lightning-charge"></i>
-                    <span>Important</span>
-                    <span class="tab-counter">14</span>
+                    <span>All</span>
+                        <span class="tab-counter"></span>
                 </div>
-                <div class="tab-item">
-                    <i class="bi bi-reply"></i>
-                    <span>Replies</span>
-                </div>
-                <div class="tab-item">
-                    <i class="bi bi-box"></i>
-                    <span>Products</span>
-                </div>
-            </div>
+            </div> -->
 
             <!-- Alerts -->
             <div th:if="${message}" class="alert alert-success alert-dismissible fade show" role="alert">

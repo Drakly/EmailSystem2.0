@@ -10,6 +10,9 @@
     <div layout:fragment="content">
         <div class="d-flex justify-content-between align-items-center mb-4 page-header">
             <h2><i class="bi bi-file-earmark me-2"></i>Drafts</h2>
+            <a th:href="@{${returnTo != null ? returnTo : '/main'}}" class="btn">
+                <i class="bi bi-arrow-left"></i> Back to main
+            </a>
             <div class="btn-group">
                 <button type="button" class="btn btn-outline-secondary" id="refreshButton">
                     <i class="bi bi-arrow-clockwise"></i> Refresh
